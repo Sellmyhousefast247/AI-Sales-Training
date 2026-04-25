@@ -1,0 +1,58 @@
+-- Global defaults: coaching patterns + objections seeded with company_id = null
+-- These are visible to every tenant via the global RLS policy.
+
+insert into public.coaching_patterns (key, label, detector_prompt, recommended_drill) values
+('asks_few_open_questions',
+  'Asks too few open-ended questions',
+  'Rep predominantly uses yes/no or leading questions across the week. Open-ended ratio under 40%.',
+  '5 minutes daily: rewrite 10 yes/no questions into open-ended versions and role-play live.'),
+('skips_timeline',
+  'Skips the timeline question',
+  'Rep does not directly ask "when do you need to be out?" or equivalent timeline question.',
+  'Add the timeline question to the rep''s opening script. Audit next 3 calls for compliance.'),
+('avoids_price',
+  'Avoids talking about price',
+  'Rep deflects or rushes when seller raises price, or never discusses seller''s price expectation.',
+  'Practice anchoring with two scripts: "Most sellers in your area are getting $X" and "Help me understand how you got to that number."'),
+('no_close_ask',
+  'Never asks for the close',
+  'Rep ends call without a direct ask for next step or commitment.',
+  'Drill: end every role-play with a direct ask. "Can we get the paperwork going?" or "Can I send the offer over now?"'),
+('talks_too_much',
+  'Talks too much (low listen ratio)',
+  'Rep word share above 60% across the week.',
+  'Listen-ratio drill: review 3 calls and count rep vs seller word counts. Target rep <45%.'),
+('lets_seller_control',
+  'Lets the seller control the call',
+  'Seller drives direction; rep is reactive, no agenda.',
+  'Use the "frame, ask, listen" pattern: state the agenda in 15 seconds at the top of every call.'),
+('fumbles_thinking_about_it',
+  'Fumbles "I need to think about it"',
+  'Rep accepts "let me think about it" without acknowledge-reframe-question pattern.',
+  'Memorize one response: "Totally fair. What specifically do you want to think through? I''d rather answer it now than have it linger."'),
+('no_next_step_set',
+  'Doesn''t set a clear next step',
+  'Call ends with vague "I''ll call you back" with no scheduled time.',
+  'Always end with "Is Tuesday at 2pm a good time for me to call back with the number?" — concrete time, not vague.');
+
+insert into public.objections (company_id, key, label, ideal_response) values
+(null, 'need_to_think_about_it',
+  'I need to think about it',
+  'Totally understand. Most folks I talk to feel the same way at first. What specifically do you want to think through — the price, the timing, or something else? I''d rather answer that now than have it sit on your mind.'),
+(null, 'offer_too_low',
+  'Your offer is too low',
+  'I hear you. The number isn''t where you wanted it to land. Let me show you exactly how I got there, and you tell me where I''m off — fair?'),
+(null, 'have_other_offers',
+  'I have other offers',
+  'Good — that means you''ve been doing your homework. Can you share what they''re offering and what terms? I''m not trying to win on price alone, I''m trying to win on certainty and speed.'),
+(null, 'dont_want_investor',
+  'I don''t want to sell to an investor',
+  'I get it — there are some bad apples out there. Can I ask what specifically concerns you? Most of the time when I dig in, it''s about feeling rushed or pressured, and that''s not how I work.'),
+(null, 'send_in_writing',
+  'Send me something in writing',
+  'Happy to. So I send you the right thing the first time, can you walk me through the property and your situation real quick? Otherwise I''m just sending you a generic letter that doesn''t mean anything.'),
+(null, 'call_back_later',
+  'Call me back next week',
+  'Sure. Quick question — what''s changing between now and next week that we couldn''t solve in 5 minutes today?');
+
+-- A tiny default scorecard preset is implied by the AI prompt itself; nothing else to seed here.
