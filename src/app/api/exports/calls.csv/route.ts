@@ -18,7 +18,7 @@ export async function GET(req: NextRequest) {
     .select(`
       id, call_datetime, call_type, lead_source, seller_name, deal_outcome,
       reps:rep_id (full_name),
-      scorecards!scorecards_call_id_fkey (average_score, total_score, deal_risk, conversion_probability, is_current)
+      scorecards!scorecards_call_id_fkey (final_score, average_score, total_score, deal_risk, conversion_probability, is_current)
     `)
     .eq("company_id", profile.company_id)
     .order("call_datetime", { ascending: false });
@@ -31,7 +31,7 @@ export async function GET(req: NextRequest) {
 
   const headers = [
     "call_id", "call_datetime", "rep", "call_type", "lead_source", "seller",
-    "outcome", "average_score", "total_score", "deal_risk", "conversion_probability",
+    "outcome", "final_score", "total_score", "deal_risk", "conversion_probability",
   ];
   const rows = (data ?? []).map((r: any) => {
     const sc = (r.scorecards ?? []).find((s: any) => s.is_current);
@@ -43,7 +43,7 @@ export async function GET(req: NextRequest) {
       r.lead_source ?? "",
       r.seller_name ?? "",
       r.deal_outcome,
-      sc?.average_score ?? "",
+      sc?.final_score ?? sc?.average_score ?? "",
       sc?.total_score ?? "",
       sc?.deal_risk ?? "",
       sc?.conversion_probability ?? "",

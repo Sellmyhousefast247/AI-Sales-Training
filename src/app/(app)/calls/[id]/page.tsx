@@ -4,7 +4,13 @@ import { createSupabaseServerClient } from "@/lib/supabase/server";
 import { getCurrentProfile } from "@/lib/queries";
 import { ScorecardView } from "@/components/ScorecardView";
 import { formatDateTime } from "@/lib/utils";
-import type { ScoreCategory, DiscoveryCheckKey } from "@/lib/types";
+import type {
+  RoadStep,
+  StepScore,
+  CriticalBreakpoint,
+  ImprovementItem,
+  MissedOpportunity,
+} from "@/lib/types";
 
 export default async function CallDetailPage({ params }: { params: Promise<{ id: string }> }) {
   const { id } = await params;
@@ -29,13 +35,15 @@ export default async function CallDetailPage({ params }: { params: Promise<{ id:
     supabase
       .from("scorecards")
       .select(`
-        id, total_score, average_score, tier_before, tier_after_projection,
-        biggest_mistake, best_moment, missed_opportunity, should_have_said,
+        id, total_score, final_score, average_score,
+        tier_before, tier_after_projection,
+        critical_breakpoint_json, what_was_done_well,
+        areas_for_improvement_json, missed_opportunities_json,
+        improved_call_flow_summary,
         suggested_followup_sms, suggested_followup_email,
         coaching_notes_manager, coaching_notes_rep,
         deal_risk, conversion_probability, recommended_next_action,
-        category_scores (category, score, justification, supporting_quote),
-        discovery_checks (check_key, was_uncovered)
+        step_scores (step, score, justification, supporting_quote)
       `)
       .eq("call_id", id)
       .eq("is_current", true)
@@ -58,27 +66,30 @@ export default async function CallDetailPage({ params }: { params: Promise<{ id:
 
       {scorecard ? (
         <ScorecardView
-          totalScore={Number(scorecard.total_score)}
-          averageScore={Number(scorecard.average_score)}
+          totalScore={Number(scorecard.total_score ?? 0)}
+          finalScore={Number(scorecard.final_score ?? scorecard.average_score ?? 0)}
           tierBefore={scorecard.tier_before ?? 1}
           tierAfter={scorecard.tier_after_projection ?? scorecard.tier_before ?? 1}
           dealRisk={(scorecard.deal_risk ?? "medium") as "low" | "medium" | "high"}
           conversionProbability={scorecard.conversion_probability ?? 0}
           recommendedNextAction={scorecard.recommended_next_action ?? ""}
-          categories={(scorecard.category_scores as any[]).map((c) => ({
-            category: c.category as ScoreCategory,
-            score: Number(c.score),
-            justification: c.justification,
-            supporting_quote: c.supporting_quote,
+          steps={(scorecard.step_scores as any[]).map((s) => ({
+            step: s.step as RoadStep,
+            score: Number(s.score) as StepScore,
+            justification: s.justification,
+            supporting_quote: s.supporting_quote,
           }))}
-          discovery={(scorecard.discovery_checks as any[]).map((d) => ({
-            check_key: d.check_key as DiscoveryCheckKey,
-            was_uncovered: d.was_uncovered,
-          }))}
-          biggestMistake={scorecard.biggest_mistake ?? ""}
-          bestMoment={scorecard.best_moment ?? ""}
-          missedOpportunity={scorecard.missed_opportunity ?? ""}
-          shouldHaveSaid={scorecard.should_have_said ?? ""}
+          criticalBreakpoint={
+            (scorecard.critical_breakpoint_json as CriticalBreakpoint | null) ?? null
+          }
+          whatWasDoneWell={scorecard.what_was_done_well ?? ""}
+          areasForImprovement={
+            (scorecard.areas_for_improvement_json as ImprovementItem[] | null) ?? []
+          }
+          missedOpportunities={
+            (scorecard.missed_opportunities_json as MissedOpportunity[] | null) ?? []
+          }
+          improvedCallFlowSummary={scorecard.improved_call_flow_summary ?? ""}
           followupSms={scorecard.suggested_followup_sms ?? ""}
           followupEmail={scorecard.suggested_followup_email ?? ""}
           managerNotes={scorecard.coaching_notes_manager ?? ""}

@@ -5,7 +5,7 @@ import {
   buildUserMessage,
 } from "./prompts";
 import { scorecardOutputSchema, type ParsedScorecard } from "./schema";
-import { SCORECARD_CATEGORIES } from "@/lib/types";
+import { ROAD_TO_DEAL_STEPS } from "@/lib/types";
 
 const MODEL = process.env.ANTHROPIC_MODEL_PRIMARY ?? "claude-sonnet-4-6";
 
@@ -25,6 +25,7 @@ export interface ScoreCallInput {
   callDatetime: string;
   sellerName?: string | null;
   transcript: string;
+  scriptContent?: string | null;
   presetOverrides?: string | null;
 }
 
@@ -38,7 +39,6 @@ export interface ScoreCallResult {
 }
 
 const PRICING = {
-  // Claude Sonnet 4.6 pricing per 1M tokens (USD). Update if pricing changes.
   "claude-sonnet-4-6": { input: 3.0, output: 15.0 },
   "claude-haiku-4-5-20251001": { input: 1.0, output: 5.0 },
 } as const;
@@ -52,11 +52,11 @@ function estimateCost(model: string, input: number, output: number) {
 export async function scoreCall(input: ScoreCallInput): Promise<ScoreCallResult> {
   const userMessage = buildUserMessage(input);
 
-  const attempt = async (temperature: number) => {
+  const attempt = async () => {
     const resp = await client().messages.create({
       model: MODEL,
       max_tokens: 4096,
-      temperature,
+      temperature: 0,
       system: [
         {
           type: "text",
@@ -76,32 +76,30 @@ export async function scoreCall(input: ScoreCallInput): Promise<ScoreCallResult>
 
     const parsed = scorecardOutputSchema.parse(toolUse.input);
 
-    // Cross-check totals; recompute if drift > 0.5
-    const sum = SCORECARD_CATEGORIES.reduce(
-      (acc, k) => acc + parsed.category_scores[k].score,
+    // Authoritative recompute of total + final from individual step scores.
+    // The model is instructed to return them but we never trust derived math.
+    const sum = ROAD_TO_DEAL_STEPS.reduce(
+      (acc, k) => acc + parsed.step_scores[k].score,
       0
     );
-    const avg = sum / 10;
-    if (Math.abs(parsed.total_score - sum) > 0.5) parsed.total_score = round(sum, 2);
-    if (Math.abs(parsed.average_score - avg) > 0.05) parsed.average_score = round(avg, 2);
+    parsed.total_score = sum;
+    parsed.final_score = round(sum / 10, 1);
 
-    const inputTokens = resp.usage.input_tokens;
-    const outputTokens = resp.usage.output_tokens;
     return {
       parsed,
       raw: toolUse.input,
       model: MODEL,
-      inputTokens,
-      outputTokens,
-      costUsd: estimateCost(MODEL, inputTokens, outputTokens),
+      inputTokens: resp.usage.input_tokens,
+      outputTokens: resp.usage.output_tokens,
+      costUsd: estimateCost(MODEL, resp.usage.input_tokens, resp.usage.output_tokens),
     } as ScoreCallResult;
   };
 
   try {
-    return await attempt(0);
-  } catch (err) {
-    // Retry once at temperature 0 (in case of transient parse/schema fail)
-    return await attempt(0);
+    return await attempt();
+  } catch {
+    // One retry — most failures are transient schema parse misses
+    return await attempt();
   }
 }
 

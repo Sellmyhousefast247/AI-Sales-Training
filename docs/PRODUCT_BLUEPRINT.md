@@ -69,41 +69,39 @@ Three input modes:
 
 Per-call metadata: company_id, rep_id, datetime, seller name, lead source, call type (inbound, outbound, follow-up, offer, negotiation, closing), transcript, recording URL, deal outcome, next step.
 
-### 4.4 AI scoring engine
+### 4.4 AI scoring engine — Road to a Deal (V3.8)
+
+The scoring engine is locked to the **2026 ACQ Closer Manual V3.8** and its **Road to a Deal** framework. Per company, the master script lives in `company_settings.script_content` and is injected into every prompt as `<COMPANY_SCRIPT>…</COMPANY_SCRIPT>`. The model treats it as the source of truth; the framework below is the fallback.
+
 **Model**: Claude Sonnet 4.6 (`claude-sonnet-4-6`) for full scoring. Haiku 4.5 (`claude-haiku-4-5-20251001`) for cheap rewrites and quick patterns.
 
-**10 categories, 1–10 each**:
-1. Opening & Tone
-2. Rapport Building
-3. Discovery
-4. Question Quality
-5. Call Control
-6. Objection Handling
-7. Value Positioning
-8. Offer Delivery
-9. Closing Ability
-10. Conversion Likelihood
+**10 Road to a Deal steps, scored 0/5/10 each**:
+1. Rapport
+2. Motivation (Why / Condition / Timeline)
+3. Get Asking Price
+4. Trial Close 1
+5. First Hold
+6. Anchor
+7. Negotiation
+8. Trial Close 2
+9. Second Hold
+10. Approval / Close
 
-**Discovery sub-checks** (boolean each, surfaced separately): motivation, timeline, condition, price expectation, equity/mortgage, decision makers, urgency, pain points, preferred outcome.
+Step score values are constrained to `0` (not done), `5` (attempted but weak), `10` (executed correctly). The tool schema enforces this. Total score = sum (0–100). Final score = total / 10 (0.0–10.0).
 
-**Output (strict JSON)**:
-- per-category score + 1-sentence justification + supporting transcript quote
-- total / 100 and average / 10
-- tier impact (current vs projected)
-- biggest mistake
-- best moment
-- missed opportunity
-- "what they should have said" (verbatim coaching script)
-- suggested follow-up SMS/email
-- coaching notes (manager voice)
-- rep-friendly feedback (encouraging voice)
-- deal risk: low | medium | high
-- conversion probability (0–100)
-- recommended next action
+**Output (strict JSON, mandatory sections)**:
+- `step_scores[]` — 10 step scores with justification + transcript quote
+- `total_score` / `final_score`
+- `critical_breakpoint` — the first major breakdown: quote, step_failed, why_it_caused_loss, what_should_have_happened
+- `what_was_done_well` — with quotes
+- `areas_for_improvement[]` — each item with `rep_said` / `issue` / `better_approach` / `corrected_script`
+- `missed_opportunities[]`
+- `improved_call_flow_summary`
+- Practical fields: `suggested_followup_sms`, `suggested_followup_email`, `coaching_notes_manager`, `coaching_notes_rep`, `deal_risk`, `conversion_probability`, `recommended_next_action`
 
-Full prompt in [`AI_SCORING_PROMPT.md`](AI_SCORING_PROMPT.md). Output is validated against a Zod schema; on parse failure we retry once at temperature 0.
+Full prompt in [`AI_SCORING_PROMPT.md`](AI_SCORING_PROMPT.md). Validated against a Zod schema; on parse failure we retry once at temperature 0. Server recomputes total/final from step scores — we never trust the model's derived math.
 
-**Cost control**: prompt caching on the static system prompt + scorecard rules. Caps per-company monthly token budget configurable in `company_settings`.
+**Cost control**: prompt caching on the static system prompt + script content. Per-company monthly token budget configurable in `company_settings`.
 
 ### 4.5 Tier system
 Five tiers, calculated from a rolling window:
@@ -243,7 +241,7 @@ Full DDL in [`DATABASE_SCHEMA.md`](DATABASE_SCHEMA.md). Tables:
 ```
 companies            users               teams
 reps                 calls               transcripts
-scorecards           category_scores     discovery_checks
+scorecards           step_scores
 coaching_notes       tier_history        incentives
 incentive_rules      reports             scripts
 objections           company_settings    integrations
@@ -252,7 +250,7 @@ audit_logs           subscriptions       coaching_patterns
 
 Key decisions:
 - `calls` and `scorecards` are 1:1 (one scorecard per call), but split for clarity and to allow re-scoring
-- `category_scores` is a child table not JSONB so we can index/query/aggregate per category
+- `step_scores` is a child table (one row per Road to a Deal step) so we can index/query/aggregate per step
 - Audio files: `calls.recording_path` references Supabase Storage; signed URL on read
 - Soft delete via `deleted_at` on tenant tables
 

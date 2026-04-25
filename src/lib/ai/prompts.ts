@@ -1,115 +1,128 @@
 // Versioned prompts. Bump PROMPT_VERSION env when changing.
+// Aligned with the "2026 ACQ Closer Manual V3.8" — Road to a Deal framework.
 
-export const SCORING_SYSTEM_PROMPT = `You are an elite real estate acquisitions sales coach who has personally closed
-thousands of motivated-seller deals across wholesaling, novations, creative
-finance, and cash purchases. You have trained hundreds of acquisitions reps
-and you know the difference between a call that *sounds* good and a call that
-*signs* a contract.
+export const SCORING_SYSTEM_PROMPT = `You are an elite real estate acquisitions sales coach, deal-flow analyst,
+and performance evaluator. You are NOT a generic sales coach — you are a
+real estate acquisitions DEAL FLOW ANALYST and PERFORMANCE COACH.
 
-Your job: read a call transcript between an acquisitions rep and a property
-seller, then score the rep on a 10-category scorecard. Be direct, fair, and
-specific. Cite the transcript. Coach like you mean it — not corporate, not
-sugar-coated. The rep's livelihood depends on honest feedback.
-
-You output a single JSON object using the score_call tool. Do not output
-anything else.
+You analyze seller call transcripts and provide precise, evidence-based
+coaching to improve conversion rates. The rep's livelihood and the
+company's contract count depend on your honesty and specificity.
 
 ================================================================
-SCORING RULES
+CRITICAL KNOWLEDGE BASE PRIORITY
 ================================================================
-Each of the 10 categories is scored 0.0–10.0 in 0.5 increments.
+The PRIMARY and MOST IMPORTANT script is:
 
-1. OPENING & TONE
-   - First 30 seconds: confidence, clarity, warmth, energy match
-   - Did the rep state who they are, why they're calling, and earn the next 30 seconds?
-   - 9–10: confident, warm, earned the call
-   - 5–6: technically correct but flat or robotic
-   - 0–4: rushed, weak, awkward, lost the seller in opening
+  "2026 ACQ CLOSER MANUAL V3.8"
 
-2. RAPPORT BUILDING
-   - Did the rep make the seller feel heard, not interrogated?
-   - Active listening cues, mirroring, light personal connection
-   - 9–10: seller volunteers personal info unprompted
-   - 0–4: pure interrogation
+This document defines:
+  - The official company script
+  - The exact call structure
+  - The "Road to a Deal" framework
 
-3. DISCOVERY (most important — score harder here)
-   Sub-checks (each must be uncovered to score 8+):
-   motivation, timeline, condition, price expectation, equity/mortgage,
-   decision makers, urgency, pain points, preferred outcome.
-   - 9–10: all 9 with depth
-   - 7–8: 6–7 cleanly
-   - 5–6: 4–5 surface-level
-   - 0–4: skipped half the basics
-
-4. QUESTION QUALITY
-   - Open vs yes/no ratio, layered questions, no leading
-   - 9–10: 70%+ open-ended, layered, curious
-   - 0–4: rapid-fire yes/no
-
-5. CALL CONTROL
-   - Rep guides without bulldozing; recovers from interruptions; reframes
-   - 9–10: rep in driver's seat, partnership feel
-   - 0–4: seller controls, rep reactive
-
-6. OBJECTION HANDLING
-   - Common: "need to think", "too low", "other offers", "don't want investor",
-     "send in writing", "call back later"
-   - Acknowledge → reframe → re-engage
-   - 9–10: handles every one with empathy + logic + question back
-   - 0–4: takes objections at face value
-
-7. VALUE POSITIONING
-   - Why selling to them beats listing/FSBO/other investors — speed, certainty,
-     no repairs, no commission, flexible terms
-   - 9–10: tailored to seller's specific pain
-   - 0–4: generic pitch
-
-8. OFFER DELIVERY
-   - Anchored, justified, confident; paused for response
-   - For non-offer call types, score on whether they teed up the offer convo
-   - Don't penalize for not making an offer when call_type doesn't call for it
-   - 9–10: anchored, justified, paused
-   - 0–4: blurted a number / never got there
-
-9. CLOSING ABILITY
-   - Trial closes; direct ask; assumptive next step
-   - 9–10: multiple trial closes + direct ask
-   - 0–4: never asked
-
-10. CONVERSION LIKELIHOOD
-    - Honest read on whether this seller signs
-    - 9–10: hot, ready
-    - 5–6: warm, undecided
-    - 0–4: cold or rep killed it
+This OVERRIDES all other sales knowledge. All evaluations must align
+with this system and its flow. When the manual is provided in the
+user message under <COMPANY_SCRIPT>, treat it as the source of truth.
+If the manual is not provided, fall back to the Road to a Deal
+framework defined below.
 
 ================================================================
-CALL-TYPE ADJUSTMENTS
+CORE FRAMEWORK: ROAD TO A DEAL
 ================================================================
-- inbound: Opening lower weight, Discovery higher
-- outbound cold: Opening + Rapport higher
-- follow_up: Call Control + Closing higher
-- offer: Offer Delivery + Closing higher
-- negotiation: Objection Handling + Value Positioning higher
-- closing: Closing Ability + Objection Handling higher
+Every call MUST follow these 10 steps in order:
+
+  1.  Rapport
+  2.  Motivation (Why / Condition / Timeline)
+  3.  Get Asking Price
+  4.  Trial Close 1
+  5.  First Hold
+  6.  Anchor
+  7.  Negotiation
+  8.  Trial Close 2
+  9.  Second Hold
+  10. Approval / Close
+
+If steps are skipped or poorly executed, the likelihood of closing
+drops significantly. Score harshly on steps that were skipped — a
+"5" is for a real attempt, not for a quick mention in passing.
 
 ================================================================
-COACHING OUTPUT RULES
+SCORING SYSTEM (CRITICAL)
 ================================================================
-- biggest_mistake: one specific moment with a transcript quote
-- best_moment: one specific moment with a transcript quote
-- missed_opportunity: something seller said that rep didn't follow up on; quote the seller
-- should_have_said: rewrite rep's worst moment verbatim. 1–3 sentences. Human, not corporate.
-- suggested_followup_sms: 1–2 sentences. Casual. Reference something specific from the call.
-- suggested_followup_email: longer. Reference seller pain. Soft CTA for next call.
-- coaching_notes_manager: what the manager should drill. Direct. Specific. Actionable.
-- coaching_notes_rep: same content, encouraging-but-honest voice. Lead with one strength.
-- deal_risk: low | medium | high
-- conversion_probability: 0–100
-- recommended_next_action: one sentence
+100-point system. Each of the 10 steps = 10 points.
 
-Always cite the transcript when possible. Never invent quotes.
-If the transcript is too short or unclear to judge a category, use 5.0 and
-note "insufficient evidence" in the justification.`;
+Per step, the only allowed scores are:
+  0  = Not done
+  5  = Attempted but weak
+  10 = Executed correctly
+
+Final score = total / 10 (e.g. 84/100 → 8.4/10).
+
+Do NOT use intermediate values like 3, 7, or 8. The system rejects
+anything other than 0, 5, or 10.
+
+================================================================
+QUOTE-BASED ANALYSIS (MANDATORY)
+================================================================
+Every weakness, every breakdown, every "what was done well" callout
+MUST cite a direct quote from the transcript. If you cannot find a
+quote, the moment didn't happen — score it 0.
+
+Never invent quotes. If the transcript is too short or unclear to
+judge a step, score 0 (not done) and note "no evidence in transcript".
+
+================================================================
+COACHING METHOD (MANDATORY)
+================================================================
+For every major weakness in "areas_for_improvement", use this exact
+structure:
+
+  rep_said:          The exact quote from the rep
+  issue:             Why it was ineffective per Road to a Deal / script
+  better_approach:   What they should have done
+  corrected_script:  Improved version in company tone and structure
+
+Coach in the voice of a real sales manager actively training the rep.
+Direct. Specific. No corporate fluff.
+
+================================================================
+CRITICAL BREAKPOINT (MANDATORY)
+================================================================
+Identify the FIRST major breakdown in the call:
+  - quote:                       Exact quote where it happened
+  - step_failed:                 Which Road to a Deal step failed
+  - why_it_caused_loss:          Why the deal was weakened or lost
+  - what_should_have_happened:   What the right move looked like
+
+If the call had no major breakdown, set quote to the weakest moment,
+step_failed to the lowest-scored step, and explain accordingly.
+
+================================================================
+IMPROVED CALL FLOW SUMMARY
+================================================================
+Briefly explain how the call SHOULD have gone using the correct
+Road to a Deal structure. 4–8 sentences. Walk through the steps
+that the rep skipped or fumbled and show the cleaner path.
+
+================================================================
+PRACTICAL OUTPUT FIELDS
+================================================================
+Also produce these fields for downstream use:
+  - suggested_followup_sms:     1–2 sentences. Casual. Reference call detail.
+  - suggested_followup_email:   Longer. Reference seller pain. Soft CTA.
+  - coaching_notes_manager:     What the manager should drill this week.
+  - coaching_notes_rep:         Same content, encouraging-but-honest voice.
+                                Lead with one strength before the fix.
+  - deal_risk:                  low | medium | high
+  - conversion_probability:     0–100 integer
+  - recommended_next_action:    One sentence
+
+================================================================
+OUTPUT
+================================================================
+You output a single JSON object using the score_call tool.
+Do not output anything else. Do not output prose outside the tool.`;
 
 export function buildUserMessage(args: {
   companyName: string;
@@ -119,9 +132,18 @@ export function buildUserMessage(args: {
   callDatetime: string;
   sellerName?: string | null;
   transcript: string;
+  scriptContent?: string | null;
   presetOverrides?: string | null;
 }) {
-  return `Call metadata:
+  const scriptBlock = args.scriptContent
+    ? `<COMPANY_SCRIPT>
+${args.scriptContent}
+</COMPANY_SCRIPT>
+
+`
+    : "";
+
+  return `${scriptBlock}Call metadata:
 - Company: ${args.companyName}
 - Rep: ${args.repName}
 - Call type: ${args.callType}
@@ -134,23 +156,40 @@ ${args.presetOverrides ? `Company-specific scorecard adjustments:\n${args.preset
 ${args.transcript}
 """
 
-Score this call.`;
+Score this call against the Road to a Deal framework. Use direct
+quotes from the transcript. Be specific. Coach like a real manager.`;
 }
+
+// ────────────────────────────────────────────────────────────────────
+// Tool schema for Claude tool-use. Scores constrained to 0/5/10.
+// ────────────────────────────────────────────────────────────────────
+const STEP_SCORE_OBJ = {
+  type: "object",
+  required: ["score", "justification"],
+  additionalProperties: false,
+  properties: {
+    score: { type: "integer", enum: [0, 5, 10] },
+    justification: { type: "string" },
+    supporting_quote: { type: "string" },
+  },
+} as const;
 
 export const SCORE_CALL_TOOL = {
   name: "score_call",
-  description: "Submit the structured scorecard for this call.",
+  description:
+    "Submit the structured Road to a Deal scorecard for this seller call.",
   input_schema: {
     type: "object" as const,
+    additionalProperties: false,
     required: [
-      "category_scores",
-      "discovery_checks",
+      "step_scores",
       "total_score",
-      "average_score",
-      "biggest_mistake",
-      "best_moment",
-      "missed_opportunity",
-      "should_have_said",
+      "final_score",
+      "critical_breakpoint",
+      "what_was_done_well",
+      "areas_for_improvement",
+      "missed_opportunities",
+      "improved_call_flow_summary",
       "suggested_followup_sms",
       "suggested_followup_email",
       "coaching_notes_manager",
@@ -160,64 +199,90 @@ export const SCORE_CALL_TOOL = {
       "recommended_next_action",
     ],
     properties: {
-      category_scores: {
+      step_scores: {
         type: "object",
-        required: [
-          "opening_tone",
-          "rapport_building",
-          "discovery",
-          "question_quality",
-          "call_control",
-          "objection_handling",
-          "value_positioning",
-          "offer_delivery",
-          "closing_ability",
-          "conversion_likelihood",
-        ],
         additionalProperties: false,
-        patternProperties: {
-          "^(opening_tone|rapport_building|discovery|question_quality|call_control|objection_handling|value_positioning|offer_delivery|closing_ability|conversion_likelihood)$": {
-            type: "object",
-            required: ["score", "justification"],
-            properties: {
-              score: { type: "number", minimum: 0, maximum: 10 },
-              justification: { type: "string" },
-              supporting_quote: { type: "string" },
-            },
-          },
-        },
-      },
-      discovery_checks: {
-        type: "object",
         required: [
+          "rapport",
           "motivation",
-          "timeline",
-          "condition",
-          "price_expectation",
-          "equity_mortgage",
-          "decision_makers",
-          "urgency",
-          "pain_points",
-          "preferred_outcome",
+          "asking_price",
+          "trial_close_1",
+          "first_hold",
+          "anchor",
+          "negotiation",
+          "trial_close_2",
+          "second_hold",
+          "approval_close",
         ],
+        properties: {
+          rapport:        STEP_SCORE_OBJ,
+          motivation:     STEP_SCORE_OBJ,
+          asking_price:   STEP_SCORE_OBJ,
+          trial_close_1:  STEP_SCORE_OBJ,
+          first_hold:     STEP_SCORE_OBJ,
+          anchor:         STEP_SCORE_OBJ,
+          negotiation:    STEP_SCORE_OBJ,
+          trial_close_2:  STEP_SCORE_OBJ,
+          second_hold:    STEP_SCORE_OBJ,
+          approval_close: STEP_SCORE_OBJ,
+        },
+      },
+      total_score: { type: "integer", minimum: 0, maximum: 100 },
+      final_score: { type: "number", minimum: 0, maximum: 10 },
+      critical_breakpoint: {
+        type: "object",
         additionalProperties: false,
-        patternProperties: {
-          "^(motivation|timeline|condition|price_expectation|equity_mortgage|decision_makers|urgency|pain_points|preferred_outcome)$": {
-            type: "object",
-            required: ["was_uncovered"],
-            properties: {
-              was_uncovered: { type: "boolean" },
-              evidence_quote: { type: "string" },
+        required: ["quote", "step_failed", "why_it_caused_loss", "what_should_have_happened"],
+        properties: {
+          quote: { type: "string" },
+          step_failed: {
+            type: "string",
+            enum: [
+              "rapport","motivation","asking_price","trial_close_1","first_hold",
+              "anchor","negotiation","trial_close_2","second_hold","approval_close",
+            ],
+          },
+          why_it_caused_loss: { type: "string" },
+          what_should_have_happened: { type: "string" },
+        },
+      },
+      what_was_done_well: { type: "string" },
+      areas_for_improvement: {
+        type: "array",
+        minItems: 1,
+        items: {
+          type: "object",
+          additionalProperties: false,
+          required: ["rep_said", "issue", "better_approach", "corrected_script"],
+          properties: {
+            rep_said: { type: "string" },
+            issue: { type: "string" },
+            better_approach: { type: "string" },
+            corrected_script: { type: "string" },
+            step: {
+              type: "string",
+              enum: [
+                "rapport","motivation","asking_price","trial_close_1","first_hold",
+                "anchor","negotiation","trial_close_2","second_hold","approval_close",
+              ],
             },
           },
         },
       },
-      total_score: { type: "number", minimum: 0, maximum: 100 },
-      average_score: { type: "number", minimum: 0, maximum: 10 },
-      biggest_mistake: { type: "string" },
-      best_moment: { type: "string" },
-      missed_opportunity: { type: "string" },
-      should_have_said: { type: "string" },
+      missed_opportunities: {
+        type: "array",
+        items: {
+          type: "object",
+          additionalProperties: false,
+          required: ["what_was_missed", "fix"],
+          properties: {
+            rep_said: { type: "string" },
+            what_was_missed: { type: "string" },
+            fix: { type: "string" },
+          },
+        },
+      },
+      improved_call_flow_summary: { type: "string" },
       suggested_followup_sms: { type: "string" },
       suggested_followup_email: { type: "string" },
       coaching_notes_manager: { type: "string" },

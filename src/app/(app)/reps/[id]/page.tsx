@@ -5,7 +5,7 @@ import { getCurrentProfile } from "@/lib/queries";
 import { TierBadge } from "@/components/TierBadge";
 import { ScoreTrendChart } from "@/components/ScoreTrendChart";
 import { formatDateTime, formatScore } from "@/lib/utils";
-import { CATEGORY_LABELS, type ScoreCategory, type Tier } from "@/lib/types";
+import { STEP_LABELS, type RoadStep, type Tier } from "@/lib/types";
 
 export default async function RepProfilePage({ params }: { params: Promise<{ id: string }> }) {
   const { id } = await params;
@@ -20,10 +20,10 @@ export default async function RepProfilePage({ params }: { params: Promise<{ id:
     .single();
   if (!rep) notFound();
 
-  const [{ data: scoreRows }, { data: recentCalls }, { data: catRows }] = await Promise.all([
+  const [{ data: scoreRows }, { data: recentCalls }, { data: stepRows }] = await Promise.all([
     supabase
       .from("scorecards")
-      .select("average_score, created_at")
+      .select("final_score, average_score, created_at")
       .eq("rep_id", id)
       .eq("is_current", true)
       .order("created_at", { ascending: true })
@@ -32,36 +32,36 @@ export default async function RepProfilePage({ params }: { params: Promise<{ id:
       .from("calls")
       .select(`
         id, call_datetime, call_type, deal_outcome,
-        scorecards!scorecards_call_id_fkey (average_score, is_current)
+        scorecards!scorecards_call_id_fkey (final_score, average_score, is_current)
       `)
       .eq("rep_id", id)
       .order("call_datetime", { ascending: false })
       .limit(10),
     supabase
-      .from("category_scores")
-      .select(`category, score, scorecards!inner(rep_id, is_current)`)
+      .from("step_scores")
+      .select(`step, score, scorecards!inner(rep_id, is_current)`)
       .eq("scorecards.rep_id", id)
       .eq("scorecards.is_current", true),
   ]);
 
   const trend = (scoreRows ?? []).map((r) => ({
     date: new Date(r.created_at).toLocaleDateString(undefined, { month: "short", day: "numeric" }),
-    score: Number(r.average_score),
+    score: Number(r.final_score ?? r.average_score),
   }));
 
-  const catAgg = new Map<ScoreCategory, { sum: number; n: number }>();
-  for (const r of catRows ?? []) {
-    const k = (r as any).category as ScoreCategory;
-    const cur = catAgg.get(k) ?? { sum: 0, n: 0 };
+  const stepAgg = new Map<RoadStep, { sum: number; n: number }>();
+  for (const r of stepRows ?? []) {
+    const k = (r as any).step as RoadStep;
+    const cur = stepAgg.get(k) ?? { sum: 0, n: 0 };
     cur.sum += Number((r as any).score);
     cur.n += 1;
-    catAgg.set(k, cur);
+    stepAgg.set(k, cur);
   }
-  const categoryAverages = [...catAgg.entries()]
-    .map(([category, v]) => ({ category, avg: v.sum / v.n }))
+  const stepAverages = [...stepAgg.entries()]
+    .map(([step, v]) => ({ step, avg: v.sum / v.n }))
     .sort((a, b) => b.avg - a.avg);
-  const strongest = categoryAverages[0];
-  const weakest = categoryAverages[categoryAverages.length - 1];
+  const strongest = stepAverages[0];
+  const weakest = stepAverages[stepAverages.length - 1];
 
   return (
     <div className="space-y-6 p-8">
@@ -100,15 +100,15 @@ export default async function RepProfilePage({ params }: { params: Promise<{ id:
 
       <section className="grid gap-4 md:grid-cols-2">
         <div className="rounded-lg border border-ink-200 bg-white p-5">
-          <div className="text-xs uppercase tracking-wide text-ink-500">Strongest category</div>
+          <div className="text-xs uppercase tracking-wide text-ink-500">Strongest step</div>
           <div className="mt-1 text-lg font-semibold">
-            {strongest ? `${CATEGORY_LABELS[strongest.category]} · ${formatScore(strongest.avg)}` : "—"}
+            {strongest ? `${STEP_LABELS[strongest.step]} · ${formatScore(strongest.avg)}` : "—"}
           </div>
         </div>
         <div className="rounded-lg border border-ink-200 bg-white p-5">
-          <div className="text-xs uppercase tracking-wide text-ink-500">Weakest category</div>
+          <div className="text-xs uppercase tracking-wide text-ink-500">Weakest step</div>
           <div className="mt-1 text-lg font-semibold">
-            {weakest ? `${CATEGORY_LABELS[weakest.category]} · ${formatScore(weakest.avg)}` : "—"}
+            {weakest ? `${STEP_LABELS[weakest.step]} · ${formatScore(weakest.avg)}` : "—"}
           </div>
         </div>
       </section>
@@ -118,13 +118,14 @@ export default async function RepProfilePage({ params }: { params: Promise<{ id:
         <ul className="divide-y divide-ink-100 text-sm">
           {(recentCalls ?? []).map((c: any) => {
             const s = (c.scorecards ?? []).find((x: any) => x.is_current);
+            const score = s ? Number(s.final_score ?? s.average_score) : null;
             return (
               <li key={c.id} className="flex items-center justify-between py-2">
                 <Link href={`/calls/${c.id}`} className="hover:underline">
                   {formatDateTime(c.call_datetime)}
                   <span className="ml-2 capitalize text-ink-500">{c.call_type.replace("_", " ")}</span>
                 </Link>
-                <span className="font-mono tabular-nums">{s ? formatScore(Number(s.average_score)) : "—"}</span>
+                <span className="font-mono tabular-nums">{score != null ? formatScore(score) : "—"}</span>
               </li>
             );
           })}

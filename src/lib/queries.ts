@@ -38,7 +38,7 @@ export async function getDashboardStats(companyId: string, days = 30) {
       .gte("call_datetime", since.toISOString()),
     supabase
       .from("scorecards")
-      .select("average_score, rep_id, created_at")
+      .select("final_score, average_score, rep_id, created_at")
       .eq("company_id", companyId)
       .eq("is_current", true)
       .gte("created_at", since.toISOString()),
@@ -49,15 +49,18 @@ export async function getDashboardStats(companyId: string, days = 30) {
       .gte("call_datetime", since.toISOString()),
   ]);
 
+  const score = (r: { final_score: number | null; average_score: number | null }) =>
+    Number(r.final_score ?? r.average_score ?? 0);
+
   const avgScore =
     scoreRows && scoreRows.length
-      ? scoreRows.reduce((a, r) => a + Number(r.average_score), 0) / scoreRows.length
+      ? scoreRows.reduce((a, r) => a + score(r as any), 0) / scoreRows.length
       : null;
 
   const repAggregate = new Map<string, { sum: number; n: number }>();
   for (const r of scoreRows ?? []) {
     const cur = repAggregate.get(r.rep_id) ?? { sum: 0, n: 0 };
-    cur.sum += Number(r.average_score);
+    cur.sum += score(r as any);
     cur.n += 1;
     repAggregate.set(r.rep_id, cur);
   }

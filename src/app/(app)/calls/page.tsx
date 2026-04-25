@@ -14,7 +14,7 @@ export default async function CallsListPage() {
     .select(`
       id, call_datetime, call_type, lead_source, deal_outcome,
       reps:rep_id (id, full_name),
-      scorecards!scorecards_call_id_fkey (id, average_score, is_current)
+      scorecards!scorecards_call_id_fkey (id, final_score, average_score, is_current)
     `)
     .eq("company_id", profile.company_id)
     .order("call_datetime", { ascending: false })
@@ -59,7 +59,7 @@ export default async function CallsListPage() {
                   <td className="px-4 py-3">{c.lead_source ?? "—"}</td>
                   <td className="px-4 py-3 capitalize">{c.deal_outcome.replace("_", " ")}</td>
                   <td className="px-4 py-3 text-right font-mono tabular-nums">
-                    {cur ? formatScore(Number(cur.average_score)) : "—"}
+                    {cur ? formatScore(Number(cur.final_score ?? cur.average_score)) : "—"}
                   </td>
                 </tr>
               );

@@ -15,8 +15,7 @@ Postgres on Supabase. All tenant tables carry `company_id uuid not null`. RLS po
 companies ─┬─< users
            ├─< teams
            ├─< reps ─< calls ─┬─< transcripts
-           │                  └─< scorecards ─< category_scores
-           │                                  └─< discovery_checks
+           │                  └─< scorecards ─< step_scores
            │                                  └─< coaching_notes
            ├─< tier_history (rep_id)
            ├─< incentive_rules
@@ -30,6 +29,20 @@ companies ─┬─< users
            ├─< subscriptions
            └─< audit_logs
 ```
+
+> Migration `0003_road_to_a_deal.sql` (V3.8 / Road to a Deal refactor):
+> - Renamed `category_scores` → `step_scores`; new step enum (`rapport`,
+>   `motivation`, `asking_price`, `trial_close_1`, `first_hold`, `anchor`,
+>   `negotiation`, `trial_close_2`, `second_hold`, `approval_close`)
+> - Step `score` constrained to `{0, 5, 10}`
+> - Dropped `discovery_checks` (replaced by structured `areas_for_improvement`
+>   and Motivation step scoring)
+> - Added to `scorecards`: `final_score`, `critical_breakpoint_json`,
+>   `what_was_done_well`, `areas_for_improvement_json`,
+>   `missed_opportunities_json`, `improved_call_flow_summary`
+> - Added to `company_settings`: `script_name`, `script_version`,
+>   `script_content` — the master script (e.g. "2026 ACQ Closer Manual
+>   V3.8") that gets injected into every scoring prompt.
 
 ## Tables
 

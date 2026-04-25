@@ -20,56 +20,57 @@ export type DealOutcome =
 
 export type RollingWindow = "last_10" | "last_30d" | "all_time";
 
-export const SCORECARD_CATEGORIES = [
-  "opening_tone",
-  "rapport_building",
-  "discovery",
-  "question_quality",
-  "call_control",
-  "objection_handling",
-  "value_positioning",
-  "offer_delivery",
-  "closing_ability",
-  "conversion_likelihood",
+// ─────────────────────────────────────────────────────────────────────
+// Road to a Deal — the canonical 10-step framework from the
+// "2026 ACQ Closer Manual V3.8". Every call is scored against these
+// steps. Each step is worth 10 points: 0 not done, 5 weak, 10 correct.
+// ─────────────────────────────────────────────────────────────────────
+export const ROAD_TO_DEAL_STEPS = [
+  "rapport",
+  "motivation",
+  "asking_price",
+  "trial_close_1",
+  "first_hold",
+  "anchor",
+  "negotiation",
+  "trial_close_2",
+  "second_hold",
+  "approval_close",
 ] as const;
-export type ScoreCategory = (typeof SCORECARD_CATEGORIES)[number];
+export type RoadStep = (typeof ROAD_TO_DEAL_STEPS)[number];
 
-export const CATEGORY_LABELS: Record<ScoreCategory, string> = {
-  opening_tone: "Opening & Tone",
-  rapport_building: "Rapport Building",
-  discovery: "Discovery",
-  question_quality: "Question Quality",
-  call_control: "Call Control",
-  objection_handling: "Objection Handling",
-  value_positioning: "Value Positioning",
-  offer_delivery: "Offer Delivery",
-  closing_ability: "Closing Ability",
-  conversion_likelihood: "Conversion Likelihood",
+export const STEP_LABELS: Record<RoadStep, string> = {
+  rapport: "Rapport",
+  motivation: "Motivation (Why / Condition / Timeline)",
+  asking_price: "Get Asking Price",
+  trial_close_1: "Trial Close 1",
+  first_hold: "First Hold",
+  anchor: "Anchor",
+  negotiation: "Negotiation",
+  trial_close_2: "Trial Close 2",
+  second_hold: "Second Hold",
+  approval_close: "Approval / Close",
 };
 
-export const DISCOVERY_CHECKS = [
-  "motivation",
-  "timeline",
-  "condition",
-  "price_expectation",
-  "equity_mortgage",
-  "decision_makers",
-  "urgency",
-  "pain_points",
-  "preferred_outcome",
-] as const;
-export type DiscoveryCheckKey = (typeof DISCOVERY_CHECKS)[number];
+export const STEP_NUMBER: Record<RoadStep, number> = {
+  rapport: 1,
+  motivation: 2,
+  asking_price: 3,
+  trial_close_1: 4,
+  first_hold: 5,
+  anchor: 6,
+  negotiation: 7,
+  trial_close_2: 8,
+  second_hold: 9,
+  approval_close: 10,
+};
 
-export const DISCOVERY_LABELS: Record<DiscoveryCheckKey, string> = {
-  motivation: "Motivation",
-  timeline: "Timeline",
-  condition: "Property Condition",
-  price_expectation: "Price Expectation",
-  equity_mortgage: "Equity / Mortgage",
-  decision_makers: "Decision Makers",
-  urgency: "Urgency",
-  pain_points: "Pain Points",
-  preferred_outcome: "Preferred Outcome",
+export type StepScore = 0 | 5 | 10;
+
+export const STEP_SCORE_LABEL: Record<StepScore, string> = {
+  0: "Not done",
+  5: "Attempted (weak)",
+  10: "Executed correctly",
 };
 
 export type Tier = 1 | 2 | 3 | 4 | 5;
@@ -82,26 +83,51 @@ export const TIER_META: Record<Tier, { label: string; status: string; min: numbe
   5: { label: "Elite",      status: "Top closer / leadership",      min: 9.0, max: 10.0 },
 };
 
+// ─────────────────────────────────────────────────────────────────────
+// Structured coaching output, V3.8 spec
+// ─────────────────────────────────────────────────────────────────────
+
+export interface ImprovementItem {
+  rep_said: string;
+  issue: string;
+  better_approach: string;
+  corrected_script: string;
+  step?: RoadStep;
+}
+
+export interface MissedOpportunity {
+  rep_said?: string;
+  what_was_missed: string;
+  fix: string;
+}
+
+export interface CriticalBreakpoint {
+  quote: string;
+  step_failed: RoadStep;
+  why_it_caused_loss: string;
+  what_should_have_happened: string;
+}
+
 export interface ScorecardOutput {
-  category_scores: Record<
-    ScoreCategory,
-    { score: number; justification: string; supporting_quote?: string }
+  step_scores: Record<
+    RoadStep,
+    { score: StepScore; justification: string; supporting_quote?: string }
   >;
-  discovery_checks: Record<
-    DiscoveryCheckKey,
-    { was_uncovered: boolean; evidence_quote?: string }
-  >;
-  total_score: number;
-  average_score: number;
-  biggest_mistake: string;
-  best_moment: string;
-  missed_opportunity: string;
-  should_have_said: string;
+  total_score: number; // 0–100, sum of step scores
+  final_score: number; // 0.0–10.0, total / 10
+
+  critical_breakpoint: CriticalBreakpoint;
+  what_was_done_well: string;
+  areas_for_improvement: ImprovementItem[];
+  missed_opportunities: MissedOpportunity[];
+  improved_call_flow_summary: string;
+
+  // Practical fields used by dashboard/leaderboard/follow-up
   suggested_followup_sms: string;
   suggested_followup_email: string;
   coaching_notes_manager: string;
   coaching_notes_rep: string;
   deal_risk: "low" | "medium" | "high";
-  conversion_probability: number;
+  conversion_probability: number; // 0–100
   recommended_next_action: string;
 }
