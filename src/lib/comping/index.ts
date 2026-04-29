@@ -18,6 +18,8 @@ export * from "./providers/types";
 export { AttomProvider } from "./providers/attom";
 export { RentCastProvider } from "./providers/rentcast";
 export { BridgeProvider } from "./providers/bridge";
+export { GreatSchoolsProvider } from "./providers/greatschools";
+export { FbiCrimeProvider } from "./providers/fbi-crime";
 export {
   NON_DISCLOSURE_STATES,
   isNonDisclosureState,

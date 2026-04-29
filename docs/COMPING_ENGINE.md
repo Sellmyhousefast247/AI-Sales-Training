@@ -389,7 +389,22 @@ Phase 6 (per-analysis snapshots):
 - Live `CompsEditor` still operates on current comp_records; Save &
   Recompute creates a new analysis row with a fresh snapshot.
 
+Phase 7 (market signal providers):
+- `src/lib/comping/providers/greatschools.ts` — pulls nearby schools by
+  lat/lng, averages `gsRating` across school types so a single bad
+  elementary doesn't drag the rating down. Tolerates `{schools:[]}`,
+  `{data:[]}`, and bare-array response shapes. Signals-only — no comps.
+- `src/lib/comping/providers/fbi-crime.ts` — hits the FBI Crime Data
+  Explorer summarized state endpoints (violent + property), normalizes
+  rates per 100k against U.S. averages so 50 = national mean. Caps
+  the index at [0, 100]. Falls back to the baseline when one series
+  is missing.
+- ProviderRouter activates each automatically when `GREATSCHOOLS_API_KEY`
+  / `FBI_CRIME_API_KEY` is set. The buying-pct adjuster in
+  `formulas.ts` already consumes `schools_rating` and `crime_index`,
+  so once a key is present every analysis picks up the signal with no
+  other code changes.
+
 What's **still not** here:
-- GreatSchools / crime feed providers.
 - Photo-vision for the *subject* property (currently only comps).
 - ATTOM / RentCast photo capture (only Bridge surfaces media today).

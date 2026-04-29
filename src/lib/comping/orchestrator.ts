@@ -13,6 +13,8 @@ import { analyzeDeal } from "./index";
 import { imputeMissingPrices, isNonDisclosureState } from "./non-disclosure";
 import { AttomProvider } from "./providers/attom";
 import { BridgeProvider } from "./providers/bridge";
+import { FbiCrimeProvider } from "./providers/fbi-crime";
+import { GreatSchoolsProvider } from "./providers/greatschools";
 import { RentCastProvider } from "./providers/rentcast";
 import { ProviderRouter, type CompDataProvider } from "./providers/types";
 import type {
@@ -213,6 +215,12 @@ function buildRouter(): ProviderRouter | null {
   }
   if (process.env.RENTCAST_API_KEY) {
     providers.push(new RentCastProvider({ apiKey: process.env.RENTCAST_API_KEY }));
+  }
+  if (process.env.GREATSCHOOLS_API_KEY) {
+    providers.push(new GreatSchoolsProvider({ apiKey: process.env.GREATSCHOOLS_API_KEY }));
+  }
+  if (process.env.FBI_CRIME_API_KEY) {
+    providers.push(new FbiCrimeProvider({ apiKey: process.env.FBI_CRIME_API_KEY }));
   }
   return providers.length > 0 ? new ProviderRouter(providers) : null;
 }
