@@ -3,6 +3,7 @@ import { redirect } from "next/navigation";
 import { createSupabaseServerClient } from "@/lib/supabase/server";
 import { getCurrentProfile } from "@/lib/queries";
 import { formatDateTime, formatMoney, formatPct } from "@/lib/utils";
+import { CompingFilterBar } from "./CompingFilterBar";
 
 interface AnalysisRow {
   id: string;
@@ -17,26 +18,73 @@ interface AnalysisRow {
   confidence_score: "Low" | "Medium" | "High";
   comps_used: number;
   comp_subjects: { id: string; address: string; city: string | null; state: string | null } | null;
+  users: { id: string; full_name: string | null; email: string; team_id: string | null } | null;
 }
 
-export default async function CompingListPage() {
+export default async function CompingListPage({
+  searchParams,
+}: {
+  searchParams: Promise<{ rep?: string; team?: string }>;
+}) {
   const profile = await getCurrentProfile();
   if (!profile?.company_id) redirect("/login");
+  const params = await searchParams;
+  const repFilter = params.rep || null;
+  const teamFilter = params.team || null;
 
   const supabase = await createSupabaseServerClient();
-  const { data, error } = await supabase
+
+  // Filter dropdowns: load all team members + teams in the company.
+  const [{ data: usersData }, { data: teamsData }] = await Promise.all([
+    supabase
+      .from("users")
+      .select("id, full_name, email, team_id")
+      .eq("company_id", profile.company_id)
+      .order("full_name", { ascending: true }),
+    supabase
+      .from("teams")
+      .select("id, name")
+      .eq("company_id", profile.company_id)
+      .order("name", { ascending: true }),
+  ]);
+  const allUsers = (usersData ?? []) as Array<{
+    id: string;
+    full_name: string | null;
+    email: string;
+    team_id: string | null;
+  }>;
+  const teams = (teamsData ?? []) as Array<{ id: string; name: string }>;
+
+  // For team filter, resolve to a list of user ids on that team.
+  const teamMemberIds = teamFilter
+    ? allUsers.filter((u) => u.team_id === teamFilter).map((u) => u.id)
+    : null;
+
+  let q = supabase
     .from("deal_analyses")
     .select(
       `
       id, created_at, arv, as_is_value, repair_estimate, repair_level,
       buying_pct, wholesale_mao, novation_mao, confidence_score, comps_used,
-      comp_subjects:subject_id (id, address, city, state)
+      comp_subjects:subject_id (id, address, city, state),
+      users:created_by (id, full_name, email, team_id)
     `
     )
     .eq("company_id", profile.company_id)
     .order("created_at", { ascending: false })
     .limit(100);
 
+  if (repFilter) q = q.eq("created_by", repFilter);
+  if (teamMemberIds) {
+    if (teamMemberIds.length === 0) {
+      // Empty team — short-circuit to avoid an `in.()` PostgREST error.
+      q = q.eq("created_by", "00000000-0000-0000-0000-000000000000");
+    } else {
+      q = q.in("created_by", teamMemberIds);
+    }
+  }
+
+  const { data, error } = await q;
   const rows: AnalysisRow[] = (data ?? []) as unknown as AnalysisRow[];
 
   const role = profile.role ?? "rep";
@@ -54,7 +102,7 @@ export default async function CompingListPage() {
           {canManageQueue ? (
             <>
               <a
-                href="/api/exports/comp-analyses.csv"
+                href={csvHref(repFilter, teamFilter)}
                 className="rounded-md border border-ink-300 bg-white px-4 py-2 text-sm font-medium hover:bg-ink-100"
               >
                 Export CSV
@@ -76,6 +124,13 @@ export default async function CompingListPage() {
         </div>
       </header>
 
+      <CompingFilterBar
+        reps={allUsers}
+        teams={teams}
+        selectedRep={repFilter}
+        selectedTeam={teamFilter}
+      />
+
       {error ? (
         <div className="rounded-lg border border-red-300 bg-red-50 p-4 text-sm text-red-900">
           Failed to load analyses: {error.message}
@@ -84,16 +139,22 @@ export default async function CompingListPage() {
 
       {rows.length === 0 ? (
         <div className="rounded-lg border border-dashed border-ink-300 bg-white p-10 text-center">
-          <div className="text-sm font-medium text-ink-700">No analyses yet</div>
+          <div className="text-sm font-medium text-ink-700">
+            {repFilter || teamFilter ? "No analyses match these filters." : "No analyses yet"}
+          </div>
           <p className="mt-1 text-sm text-ink-500">
-            Run your first deal to see it here. The form will walk you through it.
+            {repFilter || teamFilter
+              ? "Try clearing the filters to see all analyses."
+              : "Run your first deal to see it here. The form will walk you through it."}
           </p>
-          <Link
-            href="/comping/new"
-            className="mt-4 inline-block rounded-md bg-ink-900 px-4 py-2 text-sm font-medium text-white hover:bg-ink-800"
-          >
-            Start your first analysis
-          </Link>
+          {!repFilter && !teamFilter ? (
+            <Link
+              href="/comping/new"
+              className="mt-4 inline-block rounded-md bg-ink-900 px-4 py-2 text-sm font-medium text-white hover:bg-ink-800"
+            >
+              Start your first analysis
+            </Link>
+          ) : null}
         </div>
       ) : (
         <div className="overflow-hidden rounded-lg border border-ink-200 bg-white">
@@ -102,6 +163,7 @@ export default async function CompingListPage() {
               <tr>
                 <th className="px-4 py-3">When</th>
                 <th className="px-4 py-3">Property</th>
+                <th className="px-4 py-3">Created by</th>
                 <th className="px-4 py-3 text-right">ARV</th>
                 <th className="px-4 py-3 text-right">As-Is</th>
                 <th className="px-4 py-3 text-right">Repairs</th>
@@ -113,6 +175,7 @@ export default async function CompingListPage() {
             <tbody className="divide-y divide-ink-100">
               {rows.map((r) => {
                 const subj = r.comp_subjects;
+                const creator = r.users;
                 return (
                   <tr key={r.id} className="hover:bg-ink-50">
                     <td className="whitespace-nowrap px-4 py-3 text-ink-700">
@@ -125,6 +188,9 @@ export default async function CompingListPage() {
                       <div className="text-xs text-ink-500">
                         {[subj?.city, subj?.state].filter(Boolean).join(", ") || "—"}
                       </div>
+                    </td>
+                    <td className="px-4 py-3 text-xs text-ink-700">
+                      {creator?.full_name ?? creator?.email ?? "—"}
                     </td>
                     <td className="px-4 py-3 text-right font-medium">{formatMoney(r.arv)}</td>
                     <td className="px-4 py-3 text-right">{formatMoney(r.as_is_value)}</td>
@@ -149,6 +215,14 @@ export default async function CompingListPage() {
       )}
     </div>
   );
+}
+
+function csvHref(rep: string | null, team: string | null): string {
+  const params = new URLSearchParams();
+  if (rep) params.set("rep", rep);
+  if (team) params.set("team", team);
+  const qs = params.toString();
+  return `/api/exports/comp-analyses.csv${qs ? `?${qs}` : ""}`;
 }
 
 function ConfidencePill({ value }: { value: "Low" | "Medium" | "High" }) {

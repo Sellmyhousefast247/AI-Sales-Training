@@ -26,8 +26,23 @@ export async function GET(req: NextRequest) {
   const url = new URL(req.url);
   const from = url.searchParams.get("from");
   const to = url.searchParams.get("to");
+  const repFilter = url.searchParams.get("rep");
+  const teamFilter = url.searchParams.get("team");
 
   const supabase = await createSupabaseServerClient();
+
+  // Resolve a team filter into a list of user ids on that team — same
+  // approach the list page uses so the CSV mirrors what's on screen.
+  let teamMemberIds: string[] | null = null;
+  if (teamFilter) {
+    const { data: members } = await supabase
+      .from("users")
+      .select("id")
+      .eq("company_id", profile.company_id)
+      .eq("team_id", teamFilter);
+    teamMemberIds = (members ?? []).map((m: { id: string }) => m.id);
+  }
+
   let q = supabase
     .from("deal_analyses")
     .select(
@@ -47,6 +62,14 @@ export async function GET(req: NextRequest) {
 
   if (from) q = q.gte("created_at", from);
   if (to) q = q.lte("created_at", to);
+  if (repFilter) q = q.eq("created_by", repFilter);
+  if (teamMemberIds) {
+    if (teamMemberIds.length === 0) {
+      q = q.eq("created_by", "00000000-0000-0000-0000-000000000000");
+    } else {
+      q = q.in("created_by", teamMemberIds);
+    }
+  }
 
   const { data, error } = await q;
   if (error) {
