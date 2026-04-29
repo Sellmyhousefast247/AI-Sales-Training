@@ -28,3 +28,17 @@ export function formatDate(iso: string): string {
     year: "numeric",
   });
 }
+
+export function formatMoney(n: number | null | undefined): string {
+  if (n === null || n === undefined || Number.isNaN(n)) return "—";
+  return n.toLocaleString(undefined, {
+    style: "currency",
+    currency: "USD",
+    maximumFractionDigits: 0,
+  });
+}
+
+export function formatPct(n: number | null | undefined, digits = 0): string {
+  if (n === null || n === undefined || Number.isNaN(n)) return "—";
+  return `${(n * 100).toFixed(digits)}%`;
+}

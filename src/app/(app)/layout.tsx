@@ -28,6 +28,7 @@ export default async function AppLayout({ children }: { children: React.ReactNod
         <nav className="flex-1 px-2 py-2 text-sm">
           <NavLink href="/dashboard">Dashboard</NavLink>
           <NavLink href="/calls">Calls</NavLink>
+          <NavLink href="/comping">Comping</NavLink>
           <NavLink href="/reps">Reps</NavLink>
           <NavLink href="/leaderboard">Leaderboard</NavLink>
           {(role === "manager" || role === "company_admin" || role === "super_admin") && (
