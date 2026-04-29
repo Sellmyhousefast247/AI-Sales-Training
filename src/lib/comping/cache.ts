@@ -1,4 +1,10 @@
 import { createSupabaseAdminClient } from "@/lib/supabase/server";
+import {
+  buildCompsSnapshot,
+  buildSubjectSnapshot,
+  type CompSnapshot,
+  type SubjectSnapshot,
+} from "./snapshot";
 import type {
   AnalyzeDealOutput,
   CompRecord,
@@ -201,13 +207,28 @@ export async function saveMarketSignals(
   if (error) throw error;
 }
 
+export interface SaveAnalysisOptions {
+  /** Comps fed into analyzeDeal — captured immutably on the row. */
+  comps?: CompRecord[];
+  /** Subject fed into analyzeDeal — captured immutably on the row. */
+  subject?: SubjectProperty;
+}
+
 export async function saveAnalysis(
   ctx: CacheCtx,
   subjectId: string | null,
   createdBy: string | null,
-  output: AnalyzeDealOutput
+  output: AnalyzeDealOutput,
+  opts: SaveAnalysisOptions = {}
 ): Promise<string> {
   const db = createSupabaseAdminClient();
+  const compsSnapshot: CompSnapshot[] | null = opts.comps
+    ? buildCompsSnapshot(opts.comps)
+    : null;
+  const subjectSnapshot: SubjectSnapshot | null = opts.subject
+    ? buildSubjectSnapshot(opts.subject)
+    : null;
+
   const { data, error } = await db
     .from("deal_analyses")
     .insert({
@@ -228,6 +249,8 @@ export async function saveAnalysis(
       comps_used: output.comps_used,
       warnings: output.warnings,
       payload: output,
+      comps_snapshot: compsSnapshot,
+      subject_snapshot: subjectSnapshot,
     })
     .select("id")
     .single();

@@ -181,7 +181,10 @@ export async function fetchAndAnalyze(
   // 7. Persist analysis.
   let analysisId: string | null = null;
   if (persist && subjectId) {
-    analysisId = await saveAnalysis(ctx, subjectId, ctx.userId ?? null, output);
+    analysisId = await saveAnalysis(ctx, subjectId, ctx.userId ?? null, output, {
+      comps,
+      subject,
+    });
   }
 
   return {

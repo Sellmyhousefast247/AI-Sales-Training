@@ -372,6 +372,23 @@ Phase 5 (photo-vision condition pipeline):
   `list_price`, `original_list_price`, `dom_days`, `remarks` columns.
 - Cache layer persists every enrichment field round-trip.
 
+Phase 6 (per-analysis snapshots):
+- `src/lib/comping/snapshot.ts` — `buildCompsSnapshot()` and
+  `buildSubjectSnapshot()` flatten engine inputs into JSONB-friendly
+  rows, normalizing optional fields to `null` so the DB write is
+  predictable.
+- Migration 0007: `comps_snapshot jsonb` + `subject_snapshot jsonb` on
+  `deal_analyses`.
+- `saveAnalysis(ctx, subjectId, userId, output, { comps, subject })` —
+  optional snapshots persisted alongside the row. Orchestrator and
+  recompute endpoint both populate them.
+- Detail page renders a read-only "Comps used in this analysis"
+  section from the snapshot when present, so historical analyses keep
+  showing the comp values that fed them even after the live
+  comp_records get edited. Subject specs prefer the snapshot too.
+- Live `CompsEditor` still operates on current comp_records; Save &
+  Recompute creates a new analysis row with a fresh snapshot.
+
 What's **still not** here:
 - GreatSchools / crime feed providers.
 - Photo-vision for the *subject* property (currently only comps).

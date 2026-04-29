@@ -35,6 +35,12 @@ export type {
 } from "./orchestrator";
 export { classifyConditions, tagCompConditions } from "./condition-classifier";
 export { classifyConditionsFromPhotos, tagCompsByPhotos } from "./photo-classifier";
+export {
+  buildCompsSnapshot,
+  buildSubjectSnapshot,
+  type CompSnapshot,
+  type SubjectSnapshot,
+} from "./snapshot";
 
 /**
  * End-to-end deal analysis: ARV + As-Is + Repairs + MAOs + confidence.

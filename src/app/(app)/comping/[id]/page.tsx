@@ -4,6 +4,7 @@ import { createSupabaseServerClient } from "@/lib/supabase/server";
 import { getCurrentProfile } from "@/lib/queries";
 import { formatDateTime, formatMoney, formatPct } from "@/lib/utils";
 import type { AnalyzeDealOutput } from "@/lib/comping";
+import type { CompSnapshot, SubjectSnapshot } from "@/lib/comping/snapshot";
 import { CompsEditor, type CompRow } from "./CompsEditor";
 
 interface AnalysisRow {
@@ -23,6 +24,8 @@ interface AnalysisRow {
   comps_used: number;
   warnings: unknown;
   payload: AnalyzeDealOutput;
+  comps_snapshot: CompSnapshot[] | null;
+  subject_snapshot: SubjectSnapshot | null;
   comp_subjects: {
     id: string;
     address: string;
@@ -52,6 +55,7 @@ export default async function AnalysisDetailPage({ params }: { params: Promise<{
       repair_estimate, repair_level, buying_pct,
       wholesale_mao, novation_mao, market_adjusted_mao,
       confidence_score, comps_used, warnings, payload,
+      comps_snapshot, subject_snapshot,
       comp_subjects:subject_id (
         id, address, city, state, zip, beds, baths, sqft, year_built, lot_sqft, property_type
       )
@@ -170,27 +174,121 @@ export default async function AnalysisDetailPage({ params }: { params: Promise<{
         </section>
       ) : null}
 
-      {/* Subject details */}
-      {subj ? (
-        <section className="rounded-lg border border-ink-200 bg-white p-5">
-          <h2 className="text-sm font-semibold">Subject property</h2>
-          <dl className="mt-3 grid grid-cols-2 gap-3 text-sm md:grid-cols-4">
-            <Detail label="Beds" value={subj.beds ?? "—"} />
-            <Detail label="Baths" value={subj.baths ?? "—"} />
-            <Detail label="Sqft" value={subj.sqft ? subj.sqft.toLocaleString() : "—"} />
-            <Detail label="Year built" value={subj.year_built ?? "—"} />
-            <Detail label="Lot sqft" value={subj.lot_sqft ? subj.lot_sqft.toLocaleString() : "—"} />
-            <Detail label="Type" value={(subj.property_type ?? "—").replace("_", " ")} />
-            <Detail label="Buying %" value={formatPct(row.buying_pct)} />
-            <Detail label="Confidence" value={row.confidence_score} />
-          </dl>
-        </section>
+      {/* Subject details — prefer the immutable snapshot when present so
+          historical analyses stay accurate after the live subject is
+          edited. */}
+      {(() => {
+        const snapSubj = row.subject_snapshot;
+        const beds = snapSubj?.beds ?? subj?.beds ?? null;
+        const baths = snapSubj?.baths ?? subj?.baths ?? null;
+        const sqft = snapSubj?.sqft ?? subj?.sqft ?? null;
+        const yearBuilt = snapSubj?.year_built ?? subj?.year_built ?? null;
+        const lotSqft = snapSubj?.lot_sqft ?? subj?.lot_sqft ?? null;
+        const ptype = snapSubj?.property_type ?? subj?.property_type ?? null;
+        if (!subj && !snapSubj) return null;
+        return (
+          <section className="rounded-lg border border-ink-200 bg-white p-5">
+            <h2 className="text-sm font-semibold">
+              Subject property
+              {snapSubj ? (
+                <span className="ml-2 text-xs font-normal text-ink-500">
+                  (values at time of analysis)
+                </span>
+              ) : null}
+            </h2>
+            <dl className="mt-3 grid grid-cols-2 gap-3 text-sm md:grid-cols-4">
+              <Detail label="Beds" value={beds ?? "—"} />
+              <Detail label="Baths" value={baths ?? "—"} />
+              <Detail label="Sqft" value={sqft ? sqft.toLocaleString() : "—"} />
+              <Detail label="Year built" value={yearBuilt ?? "—"} />
+              <Detail label="Lot sqft" value={lotSqft ? lotSqft.toLocaleString() : "—"} />
+              <Detail label="Type" value={(ptype ?? "—").replace("_", " ")} />
+              <Detail label="Buying %" value={formatPct(row.buying_pct)} />
+              <Detail label="Confidence" value={row.confidence_score} />
+            </dl>
+          </section>
+        );
+      })()}
+
+      {/* Snapshot of the comps that fed this analysis — read-only.
+          Independent of any later edits to the live comp_records. */}
+      {row.comps_snapshot && row.comps_snapshot.length > 0 ? (
+        <CompsSnapshotSection snapshot={row.comps_snapshot} />
       ) : null}
 
-      {/* Comps editor — let users override what providers returned and
-          recompute. */}
+      {/* Live comps editor — operates on the *current* comp_records for
+          the subject. Edits + recompute create a NEW analysis row with
+          a fresh snapshot. */}
       <CompsEditor analysisId={row.id} comps={compRows} />
     </div>
+  );
+}
+
+function CompsSnapshotSection({ snapshot }: { snapshot: CompSnapshot[] }) {
+  return (
+    <section className="rounded-lg border border-ink-200 bg-white">
+      <header className="flex flex-wrap items-center justify-between gap-3 border-b border-ink-200 px-5 py-3">
+        <div>
+          <h2 className="text-sm font-semibold">Comps used in this analysis</h2>
+          <p className="text-xs text-ink-500">
+            {snapshot.length} comp{snapshot.length === 1 ? "" : "s"} — values frozen at the time of
+            analysis. Edits below create a new analysis with an updated snapshot.
+          </p>
+        </div>
+      </header>
+      <div className="overflow-x-auto">
+        <table className="w-full text-xs">
+          <thead className="bg-ink-50 text-left uppercase tracking-wide text-ink-500">
+            <tr>
+              <th className="px-3 py-2">Source</th>
+              <th className="px-3 py-2">Status</th>
+              <th className="px-3 py-2 text-right">Price</th>
+              <th className="px-3 py-2 text-right">List $</th>
+              <th className="px-3 py-2 text-right">DOM</th>
+              <th className="px-3 py-2 text-right">Beds</th>
+              <th className="px-3 py-2 text-right">Baths</th>
+              <th className="px-3 py-2 text-right">Sqft</th>
+              <th className="px-3 py-2 text-right">$/sqft</th>
+              <th className="px-3 py-2 text-right">Dist mi</th>
+              <th className="px-3 py-2">Cond.</th>
+              <th className="px-3 py-2">Note</th>
+            </tr>
+          </thead>
+          <tbody className="divide-y divide-ink-100">
+            {snapshot.map((c, i) => {
+              const ppsf = c.price > 0 && c.sqft > 0 ? Math.round(c.price / c.sqft) : null;
+              return (
+                <tr key={`${c.source_id ?? "na"}-${i}`}>
+                  <td className="px-3 py-2">
+                    <div className="font-medium text-ink-700">{c.source}</div>
+                    <div className="text-[10px] text-ink-400">{c.source_id ?? "—"}</div>
+                  </td>
+                  <td className="px-3 py-2">{c.status}</td>
+                  <td className="px-3 py-2 text-right">{formatMoney(c.price)}</td>
+                  <td className="px-3 py-2 text-right">
+                    {c.list_price ? formatMoney(c.list_price) : "—"}
+                  </td>
+                  <td className="px-3 py-2 text-right">{c.dom_days ?? "—"}</td>
+                  <td className="px-3 py-2 text-right">{c.beds}</td>
+                  <td className="px-3 py-2 text-right">{c.baths}</td>
+                  <td className="px-3 py-2 text-right">{c.sqft.toLocaleString()}</td>
+                  <td className="px-3 py-2 text-right text-ink-500">{ppsf ? `$${ppsf}` : "—"}</td>
+                  <td className="px-3 py-2 text-right">{c.distance_mi}</td>
+                  <td className="px-3 py-2">{c.condition}</td>
+                  <td className="px-3 py-2">
+                    {c.price_imputed ? (
+                      <span className="rounded bg-amber-100 px-1.5 py-0.5 text-[10px] font-medium text-amber-800">
+                        imputed
+                      </span>
+                    ) : null}
+                  </td>
+                </tr>
+              );
+            })}
+          </tbody>
+        </table>
+      </div>
+    </section>
   );
 }
 

@@ -102,8 +102,13 @@ export async function POST(
     }
   }
 
-  // 6. Save as a new analysis row so the history is preserved.
-  const newId = await saveAnalysis(ctx, analysis.subject_id, profile.id, output);
+  // 6. Save as a new analysis row so the history is preserved. The
+  //    comps + subject snapshots lock in *exactly* what fed this run,
+  //    so future edits to the live comp_records don't rewrite this row.
+  const newId = await saveAnalysis(ctx, analysis.subject_id, profile.id, output, {
+    comps,
+    subject,
+  });
 
   return NextResponse.json({ id: newId, output });
 }
