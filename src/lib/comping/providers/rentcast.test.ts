@@ -1,5 +1,5 @@
 import { describe, expect, it, vi } from "vitest";
-import { RentCastProvider } from "./rentcast";
+import { RentCastProvider, computeAppreciation12mo } from "./rentcast";
 
 describe("RentCastProvider.resolveSubject", () => {
   it("maps a /properties response into a SubjectProperty", async () => {
@@ -188,5 +188,129 @@ describe("RentCastProvider.pullComps", () => {
       { radiusMi: 0.5, monthsBack: 6 }
     );
     expect(comps[0].photo_urls).toBeUndefined();
+  });
+});
+
+describe("computeAppreciation12mo", () => {
+  function history(points: Array<[string, number]>) {
+    return {
+      history: Object.fromEntries(
+        points.map(([k, v]) => [k, { medianPrice: v }])
+      ),
+    };
+  }
+
+  it("returns null for missing or short history", () => {
+    expect(computeAppreciation12mo(null)).toBeNull();
+    expect(computeAppreciation12mo({})).toBeNull();
+    expect(
+      computeAppreciation12mo(
+        history([
+          ["2024-10", 500_000],
+          ["2024-11", 510_000],
+          ["2024-12", 520_000],
+        ])
+      )
+    ).toBeNull();
+  });
+
+  it("computes appreciation between exact 12-mo-prior and latest", () => {
+    const out = computeAppreciation12mo(
+      history([
+        ["2024-01", 500_000],
+        ["2024-04", 510_000],
+        ["2024-07", 520_000],
+        ["2024-10", 540_000],
+        ["2024-12", 545_000],
+        ["2025-01", 560_000], // latest; 12-mo prior is 2024-01 = 500k
+      ])
+    );
+    expect(out).toBeCloseTo(0.12, 2); // (560-500)/500 = 0.12
+  });
+
+  it("falls back to averagePrice when medianPrice is missing", () => {
+    const out = computeAppreciation12mo({
+      history: {
+        "2024-01": { averagePrice: 600_000 },
+        "2024-04": { averagePrice: 605_000 },
+        "2024-07": { averagePrice: 610_000 },
+        "2024-10": { averagePrice: 620_000 },
+        "2024-12": { averagePrice: 625_000 },
+        "2025-01": { averagePrice: 630_000 },
+      },
+    });
+    expect(out).toBeCloseTo(0.05, 2);
+  });
+
+  it("returns null when the earlier point is zero", () => {
+    expect(
+      computeAppreciation12mo(
+        history([
+          ["2024-01", 0],
+          ["2024-04", 100],
+          ["2024-07", 200],
+          ["2024-10", 300],
+          ["2024-12", 400],
+          ["2025-01", 500],
+        ])
+      )
+    ).toBeNull();
+  });
+});
+
+describe("RentCastProvider.pullMarketSignals", () => {
+  function makeFetch(saleData: unknown) {
+    return vi.fn(async () => new Response(JSON.stringify({ saleData }), { status: 200 }));
+  }
+
+  it("returns empty when the subject has no zip", async () => {
+    const fetchImpl = makeFetch({});
+    const p = new RentCastProvider({ apiKey: "k", fetchImpl: fetchImpl as any });
+    const sig = await p.pullMarketSignals({
+      address: "x",
+      beds: 3,
+      baths: 2,
+      sqft: 1500,
+      property_type: "single_family",
+    });
+    expect(sig).toEqual({});
+    expect(fetchImpl).not.toHaveBeenCalled();
+  });
+
+  it("emits appreciation_12mo computed from history", async () => {
+    const fetchImpl = makeFetch({
+      history: {
+        "2024-01": { medianPrice: 500_000 },
+        "2024-04": { medianPrice: 510_000 },
+        "2024-07": { medianPrice: 520_000 },
+        "2024-10": { medianPrice: 540_000 },
+        "2024-12": { medianPrice: 545_000 },
+        "2025-01": { medianPrice: 560_000 },
+      },
+    });
+    const p = new RentCastProvider({ apiKey: "k", fetchImpl: fetchImpl as any });
+    const sig = await p.pullMarketSignals({
+      address: "x",
+      zip: "78701",
+      beds: 3,
+      baths: 2,
+      sqft: 1500,
+      property_type: "single_family",
+    });
+    expect(sig.appreciation_12mo).toBeCloseTo(0.12, 2);
+  });
+
+  it("returns empty signals when the markets endpoint fails", async () => {
+    const fetchImpl = vi.fn(async () => new Response("{}", { status: 503 }));
+    const p = new RentCastProvider({ apiKey: "k", fetchImpl: fetchImpl as any });
+    const sig = await p.pullMarketSignals({
+      address: "x",
+      zip: "78701",
+      beds: 3,
+      baths: 2,
+      sqft: 1500,
+      property_type: "single_family",
+    });
+    expect(sig).toEqual({});
   });
 });

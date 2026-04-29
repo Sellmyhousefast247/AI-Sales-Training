@@ -1,4 +1,9 @@
-import type { CompRecord, PropertyType, SubjectProperty } from "../types";
+import type {
+  CompRecord,
+  MarketSignals,
+  PropertyType,
+  SubjectProperty,
+} from "../types";
 import type {
   CompDataProvider,
   PullCompsOptions,
@@ -79,6 +84,17 @@ export class RentCastProvider implements CompDataProvider {
       if (rec) out.push(rec);
     }
     return out;
+  }
+
+  async pullMarketSignals(subject: SubjectProperty): Promise<MarketSignals> {
+    if (!subject.zip) return {};
+    const url =
+      `${this.base}/markets?zipCode=${encodeURIComponent(subject.zip)}` +
+      `&dataType=Sale&historyRange=12`;
+    const json = await this.get(url).catch(() => null);
+    if (!json) return {};
+    const appreciation = computeAppreciation12mo(json?.saleData ?? json?.SaleData);
+    return appreciation == null ? {} : { appreciation_12mo: appreciation };
   }
 
   private async get(url: string): Promise<any> {
@@ -236,4 +252,55 @@ async function safeBody(res: Response): Promise<string> {
   } catch {
     return "";
   }
+}
+
+/**
+ * RentCast's /markets `saleData.history` is a record keyed by `YYYY-MM`.
+ * We compute 12-month appreciation as
+ *   (latestMedian − ~12moAgoMedian) / ~12moAgoMedian
+ * preferring the median over the average (less skewed by outliers). When
+ * the history has fewer than ~6 months we return null — the signal is
+ * too weak to act on.
+ */
+export function computeAppreciation12mo(saleData: unknown): number | null {
+  if (!saleData || typeof saleData !== "object") return null;
+  const history = (saleData as any).history ?? (saleData as any).History;
+  if (!history || typeof history !== "object") return null;
+
+  const keys = Object.keys(history)
+    .filter((k) => /^\d{4}-\d{2}/.test(k))
+    .sort();
+  if (keys.length < 6) return null;
+
+  const latestKey = keys[keys.length - 1];
+  // Try to find a key that is exactly 12 months before latest. Otherwise
+  // use the earliest available point.
+  const earlierTarget = subtractYearKey(latestKey);
+  const earlierKey =
+    keys.find((k) => k === earlierTarget) ??
+    closestKeyAtLeast(keys, earlierTarget) ??
+    keys[0];
+
+  const latestPrice = pickPrice(history[latestKey]);
+  const earlierPrice = pickPrice(history[earlierKey]);
+  if (latestPrice == null || earlierPrice == null) return null;
+  if (earlierPrice <= 0) return null;
+
+  return Number(((latestPrice - earlierPrice) / earlierPrice).toFixed(4));
+}
+
+function subtractYearKey(yyyymm: string): string {
+  const [y, m] = yyyymm.split("-");
+  return `${(parseInt(y, 10) - 1).toString().padStart(4, "0")}-${m}`;
+}
+
+function closestKeyAtLeast(sortedKeys: string[], target: string): string | null {
+  for (const k of sortedKeys) if (k >= target) return k;
+  return null;
+}
+
+function pickPrice(point: unknown): number | null {
+  if (!point || typeof point !== "object") return null;
+  const p = point as any;
+  return num(p.medianPrice ?? p.MedianPrice ?? p.averagePrice ?? p.AveragePrice);
 }

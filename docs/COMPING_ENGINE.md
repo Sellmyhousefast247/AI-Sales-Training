@@ -485,6 +485,21 @@ Phase 12 (condition-source provenance + badges):
 - Two new tests: photo classifier stamps the source field, snapshot
   round-trips it.
 
+Phase 13 (per-zip appreciation trend):
+- `RentCastProvider.pullMarketSignals` — when the subject has a zip,
+  hits `/markets?zipCode=...&dataType=Sale&historyRange=12` and
+  computes 12-mo appreciation as
+  `(latestMedian − ~12moAgoMedian) / ~12moAgoMedian`. Prefers
+  median over average; falls back to averagePrice when median is
+  absent. Requires ≥6 history points; returns null below that.
+- The signal flows automatically into `buyingPctAdjustment`'s
+  appreciation tier (≥7% → +2%, ≤−2% → −2%) and gets persisted by
+  the warmer when running on a zip.
+- 7 new tests cover the computation (exact 12-mo, fallback to
+  average, divide-by-zero guard, short-history null) plus the
+  provider entry points (no-zip short-circuit, happy path, fetch
+  failure).
+
 What's **still not** here:
 - Native file upload (Supabase Storage) for the calculator photos
   field — currently URL-paste only.
