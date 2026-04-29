@@ -405,6 +405,25 @@ Phase 7 (market signal providers):
   so once a key is present every analysis picks up the signal with no
   other code changes.
 
+Phase 8 (background cache pre-warm by zip):
+- Migration 0008: `comp_warm_queue` table with one row per
+  (company, zip), tracking `last_warmed_at` and `priority`. RLS
+  follows the standard tenant pattern.
+- `src/lib/comping/warmer.ts` — `warmZip(ctx, zip, state, city)` builds
+  a synthetic subject pinned to the zip, fan-outs across every
+  configured signal provider, and persists merged signals to
+  `comp_market_signals` (with `subject_id=null`, `zip` set). `warmDueQueue(limit)`
+  walks the oldest queue rows and stamps `last_warmed_at`.
+  `enqueueZip()` upserts queue entries idempotently.
+- `POST /api/comp/warm` lets managers/admins enqueue a specific zip;
+  `run_now: true` warms immediately.
+- `GET/POST /api/cron/warm-cache` — Vercel cron (`*/30 * * * *`)
+  processes up to 25 due zips per run. Auth via the existing
+  `CRON_SECRET` Bearer header.
+- `vercel.json` registers the cron schedule alongside the existing jobs.
+- `warmZip` accepts an injectable `router` for tests so the suite
+  doesn't need API keys or a DB.
+
 What's **still not** here:
 - Photo-vision for the *subject* property (currently only comps).
 - ATTOM / RentCast photo capture (only Bridge surfaces media today).

@@ -20,6 +20,8 @@ export { RentCastProvider } from "./providers/rentcast";
 export { BridgeProvider } from "./providers/bridge";
 export { GreatSchoolsProvider } from "./providers/greatschools";
 export { FbiCrimeProvider } from "./providers/fbi-crime";
+export { warmZip, warmDueQueue, enqueueZip } from "./warmer";
+export type { WarmContext, WarmResult } from "./warmer";
 export {
   NON_DISCLOSURE_STATES,
   isNonDisclosureState,
