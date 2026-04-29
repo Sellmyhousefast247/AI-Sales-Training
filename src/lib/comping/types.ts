@@ -50,6 +50,7 @@ export const compRecordSchema = z.object({
   garage_stalls: z.number().int().nonnegative().optional(),
   is_distressed: z.boolean().default(false),
   property_type: propertyTypeSchema.default("single_family"),
+  remarks: z.string().optional(),
 });
 export type CompRecord = z.infer<typeof compRecordSchema>;
 
