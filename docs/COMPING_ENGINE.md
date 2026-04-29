@@ -346,7 +346,33 @@ Phase 3 (MLS + non-disclosure handling):
 - Tests: Bridge provider with mocked RESO fetch (sold + active + NDS
   fallback path), non-disclosure imputation + similarity ranking.
 
+Phase 4 (UI + manual comp editing):
+- Comping list page (`/comping`), calculator (`/comping/new`), and detail
+  page (`/comping/[id]`) with three big MAO cards, repair breakdown,
+  warnings, and subject specs.
+- `CompsEditor` lets users override any per-row field (price, list_price,
+  DOM, condition, status, distance) or exclude a comp entirely.
+  PATCH `/api/comp/comps/[id]` + soft-delete via `excluded=true`.
+- POST `/api/comp/[id]/recompute` reloads non-excluded comps from DB,
+  re-imputes for non-disclosure states, re-runs `analyzeDeal`, and
+  saves a new `deal_analyses` row so history is preserved.
+- Migration 0005: `excluded`, `notes`, `overridden_by`, `overridden_at`.
+
+Phase 5 (photo-vision condition pipeline):
+- `src/lib/comping/photo-classifier.ts` — Claude Haiku vision call
+  (per-comp, parallelized) classifies each comp's photos as
+  `as_is | average | renovated`. Caps at 5 photos per comp; bypasses
+  cleanly when no `ANTHROPIC_API_KEY` is set.
+- Bridge provider now captures the RESO `Media` array, ordered by
+  `Order`, with floor plans / documents filtered out. Up to 5 photo
+  URLs per comp.
+- Orchestrator runs photos first (strongest signal) and falls back to
+  the remarks classifier for any comp the photo pass left untagged.
+- Migration 0006: `photo_urls jsonb` plus the previously-missing
+  `list_price`, `original_list_price`, `dom_days`, `remarks` columns.
+- Cache layer persists every enrichment field round-trip.
+
 What's **still not** here:
 - GreatSchools / crime feed providers.
-- Photo-vision condition pipeline.
-- UI.
+- Photo-vision for the *subject* property (currently only comps).
+- ATTOM / RentCast photo capture (only Bridge surfaces media today).

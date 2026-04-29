@@ -56,6 +56,56 @@ describe("BridgeProvider.resolveSubject", () => {
   });
 });
 
+describe("BridgeProvider.pullComps photo media", () => {
+  it("extracts ordered photo URLs from the Media array, capping at 5", async () => {
+    const fetchImpl = vi.fn(async (url: string) => {
+      const media = [
+        { MediaURL: "https://x/3.jpg", Order: 3, MediaCategory: "Photo" },
+        { MediaURL: "https://x/1.jpg", Order: 1, MediaCategory: "Photo" },
+        { MediaURL: "https://x/floorplan.pdf", Order: 0, MediaCategory: "Floor Plan" },
+        { MediaURL: "https://x/2.jpg", Order: 2, MediaCategory: "Photo" },
+        { MediaURL: "https://x/4.jpg", Order: 4, MediaCategory: "Photo" },
+        { MediaURL: "https://x/5.jpg", Order: 5, MediaCategory: "Photo" },
+        { MediaURL: "https://x/6.jpg", Order: 6, MediaCategory: "Photo" },
+      ];
+      const isSold = url.includes("Closed");
+      return bundle(
+        isSold
+          ? [
+              {
+                ListingId: "S1",
+                BedroomsTotal: 3,
+                BathroomsTotalInteger: 2,
+                LivingArea: 1500,
+                ClosePrice: 300_000,
+                StandardStatus: "Closed",
+                Latitude: 30.27,
+                Longitude: -97.74,
+                Media: media,
+              },
+            ]
+          : []
+      );
+    });
+    const p = new BridgeProvider({
+      accessToken: "tok",
+      dataset: "test",
+      fetchImpl: fetchImpl as any,
+    });
+    const comps = await p.pullComps(
+      { address: "x", beds: 3, baths: 2, sqft: 1500, property_type: "single_family", lat: 30.27, lng: -97.74 },
+      { radiusMi: 0.5, monthsBack: 6 }
+    );
+    expect(comps[0].photo_urls).toEqual([
+      "https://x/1.jpg",
+      "https://x/2.jpg",
+      "https://x/3.jpg",
+      "https://x/4.jpg",
+      "https://x/5.jpg",
+    ]);
+  });
+});
+
 describe("BridgeProvider.pullComps", () => {
   it("captures ClosePrice + ListPrice + DOM + remarks for solds and lives", async () => {
     const fetchImpl = vi.fn(async (url: string) => {

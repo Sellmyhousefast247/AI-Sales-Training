@@ -8,6 +8,7 @@ import {
   upsertSubject,
 } from "./cache";
 import { tagCompConditions } from "./condition-classifier";
+import { tagCompsByPhotos } from "./photo-classifier";
 import { analyzeDeal } from "./index";
 import { imputeMissingPrices, isNonDisclosureState } from "./non-disclosure";
 import { AttomProvider } from "./providers/attom";
@@ -102,10 +103,22 @@ export async function fetchAndAnalyze(
     comps = await router.pullComps(subject, { radiusMi: 0.5, monthsBack: 12, limit: 50 });
   }
 
-  // 3. Tag condition from MLS remarks via Claude. Only runs when remarks
-  //    are present and a key is set; quietly no-ops otherwise.
+  // 3. Tag condition. Photo-vision is the strongest signal — when a comp
+  //    has photos, prefer it over remarks. Remarks classifier picks up
+  //    whatever the photo pass left untagged. Both runs are best-effort
+  //    and quietly skipped when no API key is set.
   const shouldClassify = input.classify_conditions ?? !!process.env.ANTHROPIC_API_KEY;
   if (shouldClassify) {
+    const hasPhotos = comps.some(
+      (c) => c.source_id && c.photo_urls && c.photo_urls.length > 0 && c.condition === "average"
+    );
+    if (hasPhotos) {
+      try {
+        comps = await tagCompsByPhotos(comps);
+      } catch {
+        // photo classifier is best-effort
+      }
+    }
     const remarksById: Record<string, string> = {};
     for (const c of comps) {
       if (c.source_id && c.remarks && c.condition === "average") {

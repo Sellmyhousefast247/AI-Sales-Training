@@ -148,6 +148,11 @@ export async function saveComps(
     property_type: c.property_type,
     source: c.source,
     source_id: c.source_id ?? null,
+    list_price: c.list_price ?? null,
+    original_list_price: c.original_list_price ?? null,
+    dom_days: c.dom_days ?? null,
+    remarks: c.remarks ?? null,
+    photo_urls: c.photo_urls ?? null,
     fetched_at: new Date().toISOString(),
   }));
   const { error } = await db
@@ -261,6 +266,10 @@ function rowToComp(r: any): CompRecord {
     source_id: r.source_id ?? undefined,
     status: r.status,
     price: Number(r.price),
+    list_price: r.list_price == null ? undefined : Number(r.list_price),
+    original_list_price:
+      r.original_list_price == null ? undefined : Number(r.original_list_price),
+    dom_days: r.dom_days == null ? undefined : Number(r.dom_days),
     close_date: r.close_date ?? undefined,
     list_date: r.list_date ?? undefined,
     beds: r.beds,
@@ -273,6 +282,8 @@ function rowToComp(r: any): CompRecord {
     garage_stalls: r.garage_stalls ?? undefined,
     is_distressed: r.is_distressed,
     property_type: r.property_type,
+    remarks: r.remarks ?? undefined,
+    photo_urls: Array.isArray(r.photo_urls) ? (r.photo_urls as string[]) : undefined,
   };
 }
 

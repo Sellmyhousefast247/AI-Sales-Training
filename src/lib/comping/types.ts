@@ -54,6 +54,7 @@ export const compRecordSchema = z.object({
   is_distressed: z.boolean().default(false),
   property_type: propertyTypeSchema.default("single_family"),
   remarks: z.string().optional(),
+  photo_urls: z.array(z.string()).optional(),
   /** True when sale price was imputed from list price (non-disclosure states). */
   price_imputed: z.boolean().optional(),
 });

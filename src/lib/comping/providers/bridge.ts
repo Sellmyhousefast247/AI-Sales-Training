@@ -64,7 +64,10 @@ const FIELDS = [
   "PublicRemarks",
   "GarageSpaces",
   "SpecialListingConditions",
+  "Media",
 ].join(",");
+
+const MAX_PHOTOS = 5;
 
 export class BridgeProvider implements CompDataProvider {
   readonly name = "bridge";
@@ -235,7 +238,27 @@ function mapComp(r: any, subject: SubjectProperty): CompRecord | null {
     is_distressed: isDistressed(r?.SpecialListingConditions),
     property_type: mapPropertyType(r?.PropertyType, r?.PropertySubType),
     remarks: typeof r?.PublicRemarks === "string" ? r.PublicRemarks : undefined,
+    photo_urls: extractMediaUrls(r?.Media),
   };
+}
+
+function extractMediaUrls(raw: unknown): string[] | undefined {
+  if (!Array.isArray(raw)) return undefined;
+  const items = raw
+    .filter((m: any) => {
+      const cat = String(m?.MediaCategory ?? "").toLowerCase();
+      // Many feeds set MediaCategory to "Photo" / "Photos"; some leave it
+      // blank. Accept anything that isn't explicitly Document/Floorplan.
+      return !cat.includes("document") && !cat.includes("floor plan");
+    })
+    .map((m: any) => ({
+      url: typeof m?.MediaURL === "string" ? m.MediaURL : null,
+      order: typeof m?.Order === "number" ? m.Order : 999,
+    }))
+    .filter((m: { url: string | null }) => !!m.url) as Array<{ url: string; order: number }>;
+  if (items.length === 0) return undefined;
+  items.sort((a, b) => a.order - b.order);
+  return items.slice(0, MAX_PHOTOS).map((m) => m.url);
 }
 
 function combinedBaths(r: any): number | null {
