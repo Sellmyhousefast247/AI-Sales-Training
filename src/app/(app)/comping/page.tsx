@@ -39,6 +39,10 @@ export default async function CompingListPage() {
 
   const rows: AnalysisRow[] = (data ?? []) as unknown as AnalysisRow[];
 
+  const role = profile.role ?? "rep";
+  const canManageQueue =
+    role === "manager" || role === "company_admin" || role === "super_admin";
+
   return (
     <div className="space-y-6 p-8">
       <header className="flex items-center justify-between">
@@ -46,12 +50,22 @@ export default async function CompingListPage() {
           <h1 className="text-2xl font-semibold">Comping</h1>
           <p className="text-sm text-ink-500">Deal analyses — ARV, repairs, and MAO offers</p>
         </div>
-        <Link
-          href="/comping/new"
-          className="rounded-md bg-ink-900 px-4 py-2 text-sm font-medium text-white hover:bg-ink-800"
-        >
-          + New analysis
-        </Link>
+        <div className="flex items-center gap-2">
+          {canManageQueue ? (
+            <Link
+              href="/comping/warm-queue"
+              className="rounded-md border border-ink-300 bg-white px-4 py-2 text-sm font-medium hover:bg-ink-100"
+            >
+              Warm queue
+            </Link>
+          ) : null}
+          <Link
+            href="/comping/new"
+            className="rounded-md bg-ink-900 px-4 py-2 text-sm font-medium text-white hover:bg-ink-800"
+          >
+            + New analysis
+          </Link>
+        </div>
       </header>
 
       {error ? (
