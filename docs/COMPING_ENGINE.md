@@ -520,6 +520,15 @@ Phase 14 (PDF export + shareable link):
     Reps see Print only.
 - 120 tests still pass; typecheck clean on every new file.
 
+Phase 17 (analysis history timeline):
+- Detail page loads up to 50 prior analyses for the same `subject_id`
+  (newest first) and renders a compact `HistoryTimeline` section below
+  the editor: timestamp, ARV, Wholesale MAO, Novation MAO, comps_used,
+  confidence pill. The currently-viewed row gets an emerald background
+  + a "viewing" badge. Each row links to that analysis. Hidden when
+  fewer than 2 analyses exist (no value in showing a single row), and
+  hidden in the print view.
+
 Phase 16 (recompute trend deltas):
 - `src/lib/comping/deltas.ts` — pure `computeDeltas(current, prev)`
   returns a sparse record (only changed keys). `deltaIsImprovement(key,

@@ -87,6 +87,10 @@ export default async function AnalysisDetailPage({ params }: { params: Promise<{
     ? await loadDeltas(supabase, subj.id, row.id, row.created_at, currentNumbers(row))
     : {};
 
+  // Full history of analyses for this subject (newest first) so users can
+  // jump between recomputes without bouncing through the list page.
+  const history: HistoryRow[] = subj?.id ? await loadHistory(supabase, subj.id) : [];
+
   const role = profile.role ?? "rep";
   const canShare =
     role === "manager" || role === "company_admin" || role === "super_admin";
@@ -271,6 +275,10 @@ export default async function AnalysisDetailPage({ params }: { params: Promise<{
       <div className="no-print">
         <CompsEditor analysisId={row.id} comps={compRows} />
       </div>
+
+      {history.length > 1 ? (
+        <HistoryTimeline rows={history} currentId={row.id} />
+      ) : null}
     </div>
   );
 }
@@ -346,6 +354,34 @@ function CompsSnapshotSection({ snapshot }: { snapshot: CompSnapshot[] }) {
       </div>
     </section>
   );
+}
+
+interface HistoryRow {
+  id: string;
+  created_at: string;
+  arv: number;
+  as_is_value: number;
+  repair_estimate: number;
+  wholesale_mao: number;
+  novation_mao: number;
+  confidence_score: "Low" | "Medium" | "High";
+  comps_used: number;
+}
+
+async function loadHistory(
+  supabase: Awaited<ReturnType<typeof createSupabaseServerClient>>,
+  subjectId: string
+): Promise<HistoryRow[]> {
+  const { data } = await supabase
+    .from("deal_analyses")
+    .select(
+      `id, created_at, arv, as_is_value, repair_estimate,
+       wholesale_mao, novation_mao, confidence_score, comps_used`
+    )
+    .eq("subject_id", subjectId)
+    .order("created_at", { ascending: false })
+    .limit(50);
+  return (data ?? []) as HistoryRow[];
 }
 
 function currentNumbers(row: AnalysisRow): AnalysisNumbers {
@@ -542,5 +578,62 @@ function SnapshotConditionBadge({
     <span title={meta.title} className={`rounded px-1.5 py-0.5 text-[10px] font-medium ${meta.cls}`}>
       {meta.label}
     </span>
+  );
+}
+
+function HistoryTimeline({
+  rows,
+  currentId,
+}: {
+  rows: HistoryRow[];
+  currentId: string;
+}) {
+  return (
+    <section className="no-print rounded-lg border border-ink-200 bg-white">
+      <header className="border-b border-ink-200 px-5 py-3">
+        <h2 className="text-sm font-semibold">Analysis history</h2>
+        <p className="text-xs text-ink-500">
+          {rows.length} analyses for this subject — newest first.
+        </p>
+      </header>
+      <ol className="divide-y divide-ink-100">
+        {rows.map((r) => {
+          const isCurrent = r.id === currentId;
+          return (
+            <li key={r.id}>
+              <Link
+                href={`/comping/${r.id}`}
+                className={`flex items-center justify-between px-5 py-3 text-sm hover:bg-ink-50 ${
+                  isCurrent ? "bg-emerald-50" : ""
+                }`}
+                aria-current={isCurrent ? "page" : undefined}
+              >
+                <div className="flex items-center gap-3">
+                  <span className="text-xs text-ink-500 tabular-nums">
+                    {formatDateTime(r.created_at)}
+                  </span>
+                  {isCurrent ? (
+                    <span className="rounded bg-emerald-200 px-1.5 py-0.5 text-[10px] font-medium text-emerald-900">
+                      viewing
+                    </span>
+                  ) : null}
+                </div>
+                <div className="flex items-center gap-4 text-xs">
+                  <span title="ARV">{formatMoney(r.arv)}</span>
+                  <span title="Wholesale MAO" className="text-emerald-700">
+                    {formatMoney(r.wholesale_mao)}
+                  </span>
+                  <span title="Novation MAO" className="text-emerald-700">
+                    {formatMoney(r.novation_mao)}
+                  </span>
+                  <span className="text-ink-500">{r.comps_used} comps</span>
+                  <ConfidencePill value={r.confidence_score} />
+                </div>
+              </Link>
+            </li>
+          );
+        })}
+      </ol>
+    </section>
   );
 }
