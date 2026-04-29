@@ -46,6 +46,53 @@ export function CompCalculatorForm() {
   const [wholesaleFee, setWholesaleFee] = useState("20000");
   const [novationFee, setNovationFee] = useState("40000");
 
+  // Photo-driven condition pre-fill — the user pastes URLs (one per line)
+  // and clicks Analyze; vision fills the condition_text textarea.
+  const [photoUrlsText, setPhotoUrlsText] = useState("");
+  const [photoBusy, setPhotoBusy] = useState(false);
+  const [photoErr, setPhotoErr] = useState<string | null>(null);
+  const [photoSummary, setPhotoSummary] = useState<string | null>(null);
+
+  async function analyzePhotos() {
+    const photo_urls = photoUrlsText
+      .split(/\r?\n/)
+      .map((u) => u.trim())
+      .filter((u) => /^https?:\/\//i.test(u));
+    if (photo_urls.length === 0) {
+      setPhotoErr("Paste at least one http(s) photo URL.");
+      return;
+    }
+    setPhotoBusy(true);
+    setPhotoErr(null);
+    setPhotoSummary(null);
+    const res = await fetch("/api/comp/analyze-photos", {
+      method: "POST",
+      headers: { "content-type": "application/json" },
+      body: JSON.stringify({ photo_urls }),
+    });
+    if (!res.ok) {
+      const j = await res.json().catch(() => ({}));
+      setPhotoBusy(false);
+      setPhotoErr(j.error ?? "Failed to analyze photos.");
+      return;
+    }
+    const out = (await res.json()) as {
+      condition: "as_is" | "average" | "renovated";
+      condition_text: string;
+      drivers: string[];
+      summary: string;
+    };
+    if (out.condition_text) {
+      // Append to anything the user already typed instead of overwriting.
+      const merged = [conditionText.trim(), out.condition_text.trim()]
+        .filter(Boolean)
+        .join(", ");
+      setConditionText(merged);
+    }
+    setPhotoSummary(out.summary || `Overall condition: ${out.condition}.`);
+    setPhotoBusy(false);
+  }
+
   const [comps, setComps] = useState<ManualComp[]>([]);
   const [showCompsPaste, setShowCompsPaste] = useState(false);
   const [compsCsv, setCompsCsv] = useState("");
@@ -267,6 +314,38 @@ export function CompCalculatorForm() {
             </select>
           </Field>
         </div>
+      </Section>
+
+      {/* Photos (optional) — pre-fills condition via Claude vision. */}
+      <Section
+        title="Listing photos (optional)"
+        hint="Paste photo URLs one per line. Claude will inspect them and pre-fill the condition box below."
+      >
+        <textarea
+          value={photoUrlsText}
+          onChange={(e) => setPhotoUrlsText(e.target.value)}
+          rows={3}
+          placeholder={"https://example.com/photo1.jpg\nhttps://example.com/photo2.jpg"}
+          className={`${inputCls} font-mono text-xs`}
+        />
+        <div className="mt-3 flex items-center gap-3">
+          <button
+            type="button"
+            onClick={analyzePhotos}
+            disabled={photoBusy}
+            className="rounded-md border border-ink-300 bg-white px-3 py-1.5 text-xs font-medium hover:bg-ink-100 disabled:opacity-40"
+          >
+            {photoBusy ? "Analyzing…" : "Analyze photos"}
+          </button>
+          {photoSummary ? (
+            <span className="text-xs text-ink-500">{photoSummary}</span>
+          ) : null}
+        </div>
+        {photoErr ? (
+          <div className="mt-2 rounded border border-red-200 bg-red-50 px-2 py-1 text-xs text-red-900">
+            {photoErr}
+          </div>
+        ) : null}
       </Section>
 
       {/* Condition */}

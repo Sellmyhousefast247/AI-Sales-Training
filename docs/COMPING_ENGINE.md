@@ -424,6 +424,22 @@ Phase 8 (background cache pre-warm by zip):
 - `warmZip` accepts an injectable `router` for tests so the suite
   doesn't need API keys or a DB.
 
+Phase 9 (subject-photo vision pre-fill):
+- `src/lib/comping/subject-photo-analyzer.ts` — Claude Haiku vision call
+  with a system prompt that pins the model to the project's repair
+  vocabulary (Light/Moderate/Heavy/Full Gut keywords). Returns
+  `condition`, `condition_text` (already in the format the keyword-
+  based estimator wants), `drivers[]`, and a short `summary`.
+- `POST /api/comp/analyze-photos` — auth-gated, accepts up to 20 URLs,
+  proxies to the analyzer.
+- Calculator form (`/comping/new`) gains a "Listing photos (optional)"
+  section: paste URLs one per line, click "Analyze photos", and the
+  condition box is appended with the AI's drivers. The user reviews
+  and edits before submitting, so vision is a head-start, not a
+  black box.
+- Tests cover the empty-input, fully-empty-strings, and no-API-key
+  paths.
+
 What's **still not** here:
-- Photo-vision for the *subject* property (currently only comps).
-- ATTOM / RentCast photo capture (only Bridge surfaces media today).
+- ATTOM / RentCast photo capture for comps (only Bridge surfaces
+  media today).

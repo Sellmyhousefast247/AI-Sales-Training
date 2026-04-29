@@ -39,6 +39,8 @@ export type {
 } from "./orchestrator";
 export { classifyConditions, tagCompConditions } from "./condition-classifier";
 export { classifyConditionsFromPhotos, tagCompsByPhotos } from "./photo-classifier";
+export { analyzeSubjectPhotos } from "./subject-photo-analyzer";
+export type { SubjectPhotoAnalysis } from "./subject-photo-analyzer";
 export {
   buildCompsSnapshot,
   buildSubjectSnapshot,
