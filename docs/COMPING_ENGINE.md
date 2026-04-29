@@ -520,6 +520,19 @@ Phase 14 (PDF export + shareable link):
     Reps see Print only.
 - 120 tests still pass; typecheck clean on every new file.
 
+Phase 16 (recompute trend deltas):
+- `src/lib/comping/deltas.ts` — pure `computeDeltas(current, prev)`
+  returns a sparse record (only changed keys). `deltaIsImprovement(key,
+  diff)` knows that lower repairs are good but higher ARV / MAOs / As-Is
+  / buying-pct are good. 9 unit tests covering null/missing prev,
+  divide-by-zero, negative, no-change, NaN.
+- Detail page loads the most recent prior `deal_analyses` row for the
+  same `subject_id` (via `created_at < currentCreatedAt`) and renders
+  small ↑/↓ pills next to ARV, As-Is, Repairs, Wholesale MAO, Novation
+  MAO, Market-Adjusted MAO. Green when the delta improves the deal,
+  red when it doesn't, gray when zero. Tooltip says "Change vs previous
+  analysis for this subject". First-run analyses show no pills.
+
 Phase 15 (file upload + bulk zip import):
 - Migration 0011: a public `comp-photos` Supabase Storage bucket.
   Public so Claude vision can fetch URLs server-side and shared

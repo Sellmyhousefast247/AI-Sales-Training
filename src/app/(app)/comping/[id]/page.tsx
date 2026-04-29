@@ -7,6 +7,7 @@ import type { AnalyzeDealOutput } from "@/lib/comping";
 import type { CompSnapshot, SubjectSnapshot } from "@/lib/comping/snapshot";
 import { CompsEditor, type CompRow } from "./CompsEditor";
 import { ShareControls } from "./ShareControls";
+import { computeDeltas, deltaIsImprovement, type AnalysisDeltas, type AnalysisNumbers, type DeltaKey, type NumberDelta } from "@/lib/comping/deltas";
 
 interface AnalysisRow {
   id: string;
@@ -80,6 +81,12 @@ export default async function AnalysisDetailPage({ params }: { params: Promise<{
     ? await loadComps(supabase, subj.id)
     : [];
 
+  // Find the most recent prior analysis for the same subject so we can
+  // surface trend deltas. Falls back to no-deltas on the first run.
+  const deltas: AnalysisDeltas = subj?.id
+    ? await loadDeltas(supabase, subj.id, row.id, row.created_at, currentNumbers(row))
+    : {};
+
   const role = profile.role ?? "rep";
   const canShare =
     role === "manager" || role === "company_admin" || role === "super_admin";
@@ -116,24 +123,35 @@ export default async function AnalysisDetailPage({ params }: { params: Promise<{
           value={formatMoney(row.wholesale_mao)}
           hint={`ARV × 70% − repairs − $${(20_000).toLocaleString()}`}
           accent
+          delta={deltas.wholesale_mao}
+          deltaKey="wholesale_mao"
         />
         <BigStat
           label="Novation MAO"
           value={formatMoney(row.novation_mao)}
           hint={`As-Is × 90% − $${(40_000).toLocaleString()}`}
           accent
+          delta={deltas.novation_mao}
+          deltaKey="novation_mao"
         />
         <BigStat
           label="Market-Adjusted MAO"
           value={formatMoney(row.market_adjusted_mao)}
           hint={`ARV × ${formatPct(row.buying_pct)} − repairs − fee`}
+          delta={deltas.market_adjusted_mao}
+          deltaKey="market_adjusted_mao"
         />
       </section>
 
       {/* Comps + repairs */}
       <section className="grid grid-cols-1 gap-4 md:grid-cols-3">
         <Card title="ARV (After Repair Value)">
-          <div className="text-3xl font-semibold">{formatMoney(row.arv)}</div>
+          <div className="flex items-baseline gap-2">
+            <div className="text-3xl font-semibold">{formatMoney(row.arv)}</div>
+            {deltas.arv ? (
+              <DeltaPill delta={deltas.arv} kind="money" good={deltaIsImprovement("arv", deltas.arv.diff)} />
+            ) : null}
+          </div>
           {row.arv_low && row.arv_high ? (
             <div className="mt-1 text-xs text-ink-500">
               Range {formatMoney(row.arv_low)} – {formatMoney(row.arv_high)}
@@ -143,12 +161,30 @@ export default async function AnalysisDetailPage({ params }: { params: Promise<{
         </Card>
 
         <Card title="As-Is Value">
-          <div className="text-3xl font-semibold">{formatMoney(row.as_is_value)}</div>
+          <div className="flex items-baseline gap-2">
+            <div className="text-3xl font-semibold">{formatMoney(row.as_is_value)}</div>
+            {deltas.as_is_value ? (
+              <DeltaPill
+                delta={deltas.as_is_value}
+                kind="money"
+                good={deltaIsImprovement("as_is_value", deltas.as_is_value.diff)}
+              />
+            ) : null}
+          </div>
           <div className="mt-3 text-xs text-ink-500">What it sells for as-is, no rehab</div>
         </Card>
 
         <Card title="Repairs">
-          <div className="text-3xl font-semibold">{formatMoney(row.repair_estimate)}</div>
+          <div className="flex items-baseline gap-2">
+            <div className="text-3xl font-semibold">{formatMoney(row.repair_estimate)}</div>
+            {deltas.repair_estimate ? (
+              <DeltaPill
+                delta={deltas.repair_estimate}
+                kind="money"
+                good={deltaIsImprovement("repair_estimate", deltas.repair_estimate.diff)}
+              />
+            ) : null}
+          </div>
           <div className="mt-1 text-sm font-medium text-ink-700">{row.repair_level}</div>
           {breakdown ? (
             <div className="mt-1 text-xs text-ink-500">
@@ -312,6 +348,50 @@ function CompsSnapshotSection({ snapshot }: { snapshot: CompSnapshot[] }) {
   );
 }
 
+function currentNumbers(row: AnalysisRow): AnalysisNumbers {
+  return {
+    arv: Number(row.arv),
+    as_is_value: Number(row.as_is_value),
+    repair_estimate: Number(row.repair_estimate),
+    buying_pct: Number(row.buying_pct),
+    wholesale_mao: Number(row.wholesale_mao),
+    novation_mao: Number(row.novation_mao),
+    market_adjusted_mao: Number(row.market_adjusted_mao),
+  };
+}
+
+async function loadDeltas(
+  supabase: Awaited<ReturnType<typeof createSupabaseServerClient>>,
+  subjectId: string,
+  currentId: string,
+  currentCreatedAt: string,
+  current: AnalysisNumbers
+): Promise<AnalysisDeltas> {
+  const { data } = await supabase
+    .from("deal_analyses")
+    .select(
+      `arv, as_is_value, repair_estimate, buying_pct,
+       wholesale_mao, novation_mao, market_adjusted_mao`
+    )
+    .eq("subject_id", subjectId)
+    .lt("created_at", currentCreatedAt)
+    .neq("id", currentId)
+    .order("created_at", { ascending: false })
+    .limit(1)
+    .maybeSingle();
+  if (!data) return {};
+  const prev: AnalysisNumbers = {
+    arv: Number(data.arv),
+    as_is_value: Number(data.as_is_value),
+    repair_estimate: Number(data.repair_estimate),
+    buying_pct: Number(data.buying_pct),
+    wholesale_mao: Number(data.wholesale_mao),
+    novation_mao: Number(data.novation_mao),
+    market_adjusted_mao: Number(data.market_adjusted_mao),
+  };
+  return computeDeltas(current, prev);
+}
+
 async function loadComps(
   supabase: Awaited<ReturnType<typeof createSupabaseServerClient>>,
   subjectId: string
@@ -354,19 +434,66 @@ function BigStat({
   value,
   hint,
   accent,
+  delta,
+  deltaKey,
 }: {
   label: string;
   value: string;
   hint?: string;
   accent?: boolean;
+  delta?: NumberDelta;
+  deltaKey?: DeltaKey;
 }) {
   return (
     <div className={`rounded-lg border p-5 ${accent ? "border-emerald-300 bg-emerald-50" : "border-ink-200 bg-white"}`}>
-      <div className="text-xs uppercase tracking-wide text-ink-600">{label}</div>
+      <div className="flex items-start justify-between gap-2">
+        <div className="text-xs uppercase tracking-wide text-ink-600">{label}</div>
+        {delta && deltaKey ? <DeltaPill delta={delta} kind={kindOf(deltaKey)} good={deltaIsImprovement(deltaKey, delta.diff)} /> : null}
+      </div>
       <div className={`mt-2 text-3xl font-semibold ${accent ? "text-emerald-900" : "text-ink-900"}`}>{value}</div>
       {hint ? <div className="mt-1 text-xs text-ink-500">{hint}</div> : null}
     </div>
   );
+}
+
+function DeltaPill({
+  delta,
+  kind,
+  good,
+}: {
+  delta: NumberDelta;
+  kind: "money" | "pct";
+  good: boolean | null;
+}) {
+  if (delta.diff === 0) return null;
+  const arrow = delta.diff > 0 ? "↑" : "↓";
+  const cls =
+    good === null
+      ? "bg-ink-100 text-ink-700"
+      : good
+        ? "bg-emerald-100 text-emerald-800"
+        : "bg-red-100 text-red-800";
+  const label =
+    kind === "money"
+      ? formatMoney(Math.abs(delta.diff))
+      : `${(Math.abs(delta.diff) * 100).toFixed(1)}pp`;
+  const pct =
+    delta.pct === 0
+      ? ""
+      : ` (${(delta.pct > 0 ? "+" : "−")}${(Math.abs(delta.pct) * 100).toFixed(1)}%)`;
+  return (
+    <span
+      className={`rounded px-1.5 py-0.5 text-[10px] font-medium ${cls}`}
+      title="Change vs previous analysis for this subject"
+    >
+      {arrow} {label}
+      {kind === "money" ? pct : ""}
+    </span>
+  );
+}
+
+function kindOf(k: DeltaKey): "money" | "pct" {
+  return k === "buying_pct" ? "pct" : "money";
 }
 
 function Card({ title, children }: { title: string; children: React.ReactNode }) {
