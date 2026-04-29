@@ -3,6 +3,7 @@ import { redirect } from "next/navigation";
 import { createSupabaseServerClient } from "@/lib/supabase/server";
 import { getCurrentProfile } from "@/lib/queries";
 import { formatDateTime, formatMoney, formatPct } from "@/lib/utils";
+import { computeListStats, type AnalysisListItem } from "@/lib/comping/stats";
 import { CompingFilterBar } from "./CompingFilterBar";
 
 interface AnalysisRow {
@@ -86,6 +87,7 @@ export default async function CompingListPage({
 
   const { data, error } = await q;
   const rows: AnalysisRow[] = (data ?? []) as unknown as AnalysisRow[];
+  const stats = computeListStats(rows as AnalysisListItem[]);
 
   const role = profile.role ?? "rep";
   const canManageQueue =
@@ -130,6 +132,30 @@ export default async function CompingListPage({
         selectedRep={repFilter}
         selectedTeam={teamFilter}
       />
+
+      {rows.length > 0 ? (
+        <section className="grid grid-cols-2 gap-3 md:grid-cols-4 lg:grid-cols-7">
+          <Stat label="Analyses" value={String(stats.count)} />
+          <Stat label="Avg ARV" value={formatMoney(stats.avg_arv)} />
+          <Stat label="Avg As-Is" value={formatMoney(stats.avg_as_is)} />
+          <Stat label="Avg repairs" value={formatMoney(stats.avg_repairs)} />
+          <Stat
+            label="Total Wholesale MAO"
+            value={formatMoney(stats.total_wholesale_mao)}
+            tone="emerald"
+          />
+          <Stat
+            label="Total Novation MAO"
+            value={formatMoney(stats.total_novation_mao)}
+            tone="emerald"
+          />
+          <Stat
+            label="Median comps"
+            value={String(stats.median_comps_used)}
+            hint={`${formatPct(stats.high_confidence_pct, 0)} high · ${formatPct(stats.low_confidence_pct, 0)} low`}
+          />
+        </section>
+      ) : null}
 
       {error ? (
         <div className="rounded-lg border border-red-300 bg-red-50 p-4 text-sm text-red-900">
@@ -233,4 +259,25 @@ function ConfidencePill({ value }: { value: "Low" | "Medium" | "High" }) {
         ? "bg-amber-100 text-amber-800"
         : "bg-red-100 text-red-800";
   return <span className={`inline-block rounded px-2 py-0.5 text-xs font-medium ${cls}`}>{value}</span>;
+}
+
+function Stat({
+  label,
+  value,
+  hint,
+  tone,
+}: {
+  label: string;
+  value: string;
+  hint?: string;
+  tone?: "emerald";
+}) {
+  const valueCls = tone === "emerald" ? "text-emerald-900" : "text-ink-900";
+  return (
+    <div className="rounded-lg border border-ink-200 bg-white p-3">
+      <div className="text-[10px] uppercase tracking-wide text-ink-500">{label}</div>
+      <div className={`mt-1 text-base font-semibold ${valueCls}`}>{value}</div>
+      {hint ? <div className="mt-0.5 text-[10px] text-ink-500">{hint}</div> : null}
+    </div>
+  );
 }
