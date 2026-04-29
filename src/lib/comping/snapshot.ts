@@ -24,6 +24,7 @@ export interface CompSnapshot {
   year_built: number | null;
   distance_mi: number;
   condition: "as_is" | "average" | "renovated";
+  condition_source: "photos" | "remarks" | "manual" | "provider" | null;
   garage_stalls: number | null;
   is_distressed: boolean;
   property_type: string;
@@ -62,6 +63,7 @@ export function buildCompsSnapshot(comps: CompRecord[]): CompSnapshot[] {
     year_built: c.year_built ?? null,
     distance_mi: c.distance_mi,
     condition: c.condition,
+    condition_source: c.condition_source ?? null,
     garage_stalls: c.garage_stalls ?? null,
     is_distressed: c.is_distressed,
     property_type: c.property_type,

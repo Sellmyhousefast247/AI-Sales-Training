@@ -72,4 +72,12 @@ describe("tagCompsByPhotos", () => {
     expect(out[0].source_id).toBe("P1");
     expect(out[0].price).toBe(320_000);
   });
+
+  it("stamps condition_source = 'photos' on tagged comps", async () => {
+    const comps = [
+      comp({ source_id: "P1", condition: "renovated", photo_urls: ["https://x/p.jpg"] }),
+    ];
+    const out = await tagCompsByPhotos(comps);
+    expect(out[0].condition_source).toBe("photos");
+  });
 });

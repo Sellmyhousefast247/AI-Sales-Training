@@ -128,6 +128,6 @@ export async function tagCompsByPhotos(
   return comps.map((c) => {
     if (!c.source_id) return c;
     const tag = tags[c.source_id];
-    return tag ? { ...c, condition: tag } : c;
+    return tag ? { ...c, condition: tag, condition_source: "photos" } : c;
   });
 }

@@ -17,6 +17,7 @@ export interface CompRow {
   sqft: number;
   distance_mi: number;
   condition: "as_is" | "average" | "renovated";
+  condition_source: "photos" | "remarks" | "manual" | "provider" | null;
   is_distressed: boolean;
   excluded: boolean;
   notes: string | null;
@@ -265,16 +266,19 @@ export function CompsEditor({ analysisId, comps: initial }: Props) {
                     />
                   </td>
                   <td className="px-3 py-2">
-                    <select
-                      value={c.condition}
-                      onChange={(e) => update(c.id, "condition", e.target.value as CompRow["condition"])}
-                      className={cellSelect}
-                      disabled={busy}
-                    >
-                      <option value="as_is">as_is</option>
-                      <option value="average">average</option>
-                      <option value="renovated">renovated</option>
-                    </select>
+                    <div className="flex items-center gap-1">
+                      <select
+                        value={c.condition}
+                        onChange={(e) => update(c.id, "condition", e.target.value as CompRow["condition"])}
+                        className={cellSelect}
+                        disabled={busy}
+                      >
+                        <option value="as_is">as_is</option>
+                        <option value="average">average</option>
+                        <option value="renovated">renovated</option>
+                      </select>
+                      <ConditionSourceBadge source={c.condition_source} />
+                    </div>
                   </td>
                 </tr>
               );
@@ -290,3 +294,19 @@ const cellInput =
   "w-24 rounded border border-ink-200 bg-white px-2 py-1 text-xs focus:border-ink-500 focus:outline-none focus:ring-1 focus:ring-ink-500";
 const cellSelect =
   "rounded border border-ink-200 bg-white px-1 py-1 text-xs focus:border-ink-500 focus:outline-none focus:ring-1 focus:ring-ink-500";
+
+function ConditionSourceBadge({ source }: { source: CompRow["condition_source"] }) {
+  if (!source) return null;
+  const map: Record<NonNullable<CompRow["condition_source"]>, { label: string; cls: string; title: string }> = {
+    photos:   { label: "vision",   cls: "bg-blue-100 text-blue-800",       title: "Set by Claude photo classifier" },
+    remarks:  { label: "text",     cls: "bg-amber-100 text-amber-800",     title: "Set by Claude text classifier on MLS remarks" },
+    manual:   { label: "edited",   cls: "bg-emerald-100 text-emerald-800", title: "Edited by a user" },
+    provider: { label: "provider", cls: "bg-ink-100 text-ink-700",         title: "Set by the data provider" },
+  };
+  const meta = map[source];
+  return (
+    <span title={meta.title} className={`rounded px-1.5 py-0.5 text-[10px] font-medium ${meta.cls}`}>
+      {meta.label}
+    </span>
+  );
+}

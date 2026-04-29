@@ -131,6 +131,6 @@ export async function tagCompConditions(
   return comps.map((c) => {
     const id = c.source_id ?? "";
     const tagged = classifications[id];
-    return tagged ? { ...c, condition: tagged } : c;
+    return tagged ? { ...c, condition: tagged, condition_source: "remarks" } : c;
   });
 }

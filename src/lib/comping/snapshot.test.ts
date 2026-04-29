@@ -63,6 +63,12 @@ describe("buildCompsSnapshot", () => {
   it("treats price_imputed=undefined as false", () => {
     expect(buildCompsSnapshot([comp()])[0].price_imputed).toBe(false);
   });
+
+  it("preserves condition_source through the snapshot, defaulting to null", () => {
+    const tagged = comp({ condition_source: "photos" });
+    expect(buildCompsSnapshot([tagged])[0].condition_source).toBe("photos");
+    expect(buildCompsSnapshot([comp()])[0].condition_source).toBeNull();
+  });
 });
 
 describe("buildSubjectSnapshot", () => {

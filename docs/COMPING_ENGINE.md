@@ -469,6 +469,22 @@ Phase 11 (lot-defect signals via free public APIs):
 - 9 mocked-fetch tests cover each upstream, the merge path, the
   flat-lot/low-risk negatives, and the no-lat/lng short-circuit.
 
+Phase 12 (condition-source provenance + badges):
+- Migration 0009: `comp_records.condition_source` (`photos` | `remarks` |
+  `manual` | `provider` | NULL).
+- `tagCompsByPhotos` stamps `condition_source: "photos"`,
+  `tagCompConditions` stamps `"remarks"`, and PATCH
+  `/api/comp/comps/[id]` stamps `"manual"` whenever a user changes
+  `condition`.
+- `cache.saveComps` + `rowToComp` round-trip the field; `buildCompsSnapshot`
+  captures it so historical analyses keep their provenance.
+- Detail page renders a small colored badge next to each comp's
+  condition — vision (blue), text (amber), edited (emerald), provider
+  (gray) — both in the live `CompsEditor` and the read-only
+  `CompsSnapshotSection`. Hover tooltip explains the source.
+- Two new tests: photo classifier stamps the source field, snapshot
+  round-trips it.
+
 What's **still not** here:
 - Native file upload (Supabase Storage) for the calculator photos
   field — currently URL-paste only.

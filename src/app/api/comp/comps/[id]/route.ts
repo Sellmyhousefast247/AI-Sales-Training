@@ -52,13 +52,19 @@ export async function PATCH(
   }
 
   const supabase = await createSupabaseServerClient();
+  // If the user is changing the condition, mark the source as "manual" so
+  // the detail page can show that the value isn't the AI's bucket anymore.
+  const updates: Record<string, unknown> = {
+    ...patch,
+    overridden_by: profile.id,
+    overridden_at: new Date().toISOString(),
+  };
+  if (patch.condition !== undefined) {
+    updates.condition_source = "manual";
+  }
   const { data, error } = await supabase
     .from("comp_records")
-    .update({
-      ...patch,
-      overridden_by: profile.id,
-      overridden_at: new Date().toISOString(),
-    })
+    .update(updates)
     .eq("id", id)
     .eq("company_id", profile.company_id)
     .select("id")

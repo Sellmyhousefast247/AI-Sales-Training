@@ -30,6 +30,9 @@ export type SubjectProperty = z.infer<typeof subjectPropertySchema>;
 export const compConditionSchema = z.enum(["as_is", "average", "renovated"]);
 export type CompCondition = z.infer<typeof compConditionSchema>;
 
+export const conditionSourceSchema = z.enum(["photos", "remarks", "manual", "provider"]);
+export type ConditionSource = z.infer<typeof conditionSourceSchema>;
+
 export const compStatusSchema = z.enum(["sold", "active", "pending"]);
 export type CompStatus = z.infer<typeof compStatusSchema>;
 
@@ -50,6 +53,7 @@ export const compRecordSchema = z.object({
   year_built: z.number().int().optional(),
   distance_mi: z.number().nonnegative(),
   condition: compConditionSchema.default("average"),
+  condition_source: conditionSourceSchema.optional(),
   garage_stalls: z.number().int().nonnegative().optional(),
   is_distressed: z.boolean().default(false),
   property_type: propertyTypeSchema.default("single_family"),

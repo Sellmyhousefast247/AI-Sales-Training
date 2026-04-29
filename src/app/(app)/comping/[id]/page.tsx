@@ -274,7 +274,12 @@ function CompsSnapshotSection({ snapshot }: { snapshot: CompSnapshot[] }) {
                   <td className="px-3 py-2 text-right">{c.sqft.toLocaleString()}</td>
                   <td className="px-3 py-2 text-right text-ink-500">{ppsf ? `$${ppsf}` : "—"}</td>
                   <td className="px-3 py-2 text-right">{c.distance_mi}</td>
-                  <td className="px-3 py-2">{c.condition}</td>
+                  <td className="px-3 py-2">
+                    <div className="flex items-center gap-1">
+                      <span>{c.condition}</span>
+                      <SnapshotConditionBadge source={c.condition_source ?? null} />
+                    </div>
+                  </td>
                   <td className="px-3 py-2">
                     {c.price_imputed ? (
                       <span className="rounded bg-amber-100 px-1.5 py-0.5 text-[10px] font-medium text-amber-800">
@@ -300,8 +305,8 @@ async function loadComps(
     .from("comp_records")
     .select(
       `id, source, source_id, status, price, list_price, dom_days, close_date,
-       beds, baths, sqft, distance_mi, condition, is_distressed, excluded,
-       notes, remarks`
+       beds, baths, sqft, distance_mi, condition, condition_source,
+       is_distressed, excluded, notes, remarks`
     )
     .eq("subject_id", subjectId)
     .order("status", { ascending: true })
@@ -321,6 +326,7 @@ async function loadComps(
     sqft: Number(r.sqft ?? 0),
     distance_mi: Number(r.distance_mi ?? 0),
     condition: r.condition as CompRow["condition"],
+    condition_source: (r.condition_source as CompRow["condition_source"]) ?? null,
     is_distressed: !!r.is_distressed,
     excluded: !!r.excluded,
     notes: (r.notes as string | null) ?? null,
@@ -374,4 +380,25 @@ function ConfidencePill({ value }: { value: "Low" | "Medium" | "High" }) {
         ? "bg-amber-100 text-amber-800"
         : "bg-red-100 text-red-800";
   return <span className={`inline-block rounded px-2 py-1 text-xs font-medium ${cls}`}>{value} confidence</span>;
+}
+
+function SnapshotConditionBadge({
+  source,
+}: {
+  source: CompSnapshot["condition_source"] | null | undefined;
+}) {
+  if (!source) return null;
+  const map = {
+    photos:   { label: "vision",   cls: "bg-blue-100 text-blue-800",       title: "Set by Claude photo classifier" },
+    remarks:  { label: "text",     cls: "bg-amber-100 text-amber-800",     title: "Set by Claude text classifier on MLS remarks" },
+    manual:   { label: "edited",   cls: "bg-emerald-100 text-emerald-800", title: "Edited by a user" },
+    provider: { label: "provider", cls: "bg-ink-100 text-ink-700",         title: "Set by the data provider" },
+  } as const;
+  const meta = map[source];
+  if (!meta) return null;
+  return (
+    <span title={meta.title} className={`rounded px-1.5 py-0.5 text-[10px] font-medium ${meta.cls}`}>
+      {meta.label}
+    </span>
+  );
 }
