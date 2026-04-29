@@ -451,6 +451,24 @@ Phase 10 (ATTOM + RentCast photo capture):
 - Photos from these providers automatically flow into the orchestrator's
   photo-classifier pass — no other code changes needed.
 
+Phase 11 (lot-defect signals via free public APIs):
+- `src/lib/comping/providers/lot-signals.ts` — `LotSignalsProvider`
+  combines three free upstreams in parallel (`Promise.allSettled` so
+  one slow source can't tank the lookup):
+  - FEMA NFHL flood-hazard layer 28 → flags has_lot_defects when the
+    point falls in a high-risk zone (A, AE, AH, AO, AR, A99, V, VE).
+  - USGS EPQS elevation queried at 4 cardinal points ~50 m around the
+    subject → computes slope %; flags has_lot_defects when slope ≥ 12%
+    (configurable).
+  - OSM Overpass `out count` for railway lines within 200 m and
+    motorway/trunk/primary roads within 80 m → flags
+    near_train_or_busy_road when count > 0.
+- Activated via `LOT_SIGNALS_ENABLED=1` in both the orchestrator and
+  the warm-cache pre-fetch. Opt-in because Overpass is rate-limited
+  and we don't want to surprise ops.
+- 9 mocked-fetch tests cover each upstream, the merge path, the
+  flat-lot/low-risk negatives, and the no-lat/lng short-circuit.
+
 What's **still not** here:
 - Native file upload (Supabase Storage) for the calculator photos
   field — currently URL-paste only.

@@ -15,6 +15,7 @@ import { AttomProvider } from "./providers/attom";
 import { BridgeProvider } from "./providers/bridge";
 import { FbiCrimeProvider } from "./providers/fbi-crime";
 import { GreatSchoolsProvider } from "./providers/greatschools";
+import { LotSignalsProvider } from "./providers/lot-signals";
 import { RentCastProvider } from "./providers/rentcast";
 import { ProviderRouter, type CompDataProvider } from "./providers/types";
 import type {
@@ -222,5 +223,18 @@ function buildRouter(): ProviderRouter | null {
   if (process.env.FBI_CRIME_API_KEY) {
     providers.push(new FbiCrimeProvider({ apiKey: process.env.FBI_CRIME_API_KEY }));
   }
+  // LotSignalsProvider hits free public APIs (FEMA, USGS, Overpass) so it
+  // doesn't need a key — but Overpass is rate-limited, so we activate it
+  // explicitly via env to give ops control.
+  if (envFlag("LOT_SIGNALS_ENABLED")) {
+    providers.push(new LotSignalsProvider());
+  }
   return providers.length > 0 ? new ProviderRouter(providers) : null;
+}
+
+function envFlag(name: string): boolean {
+  const v = process.env[name];
+  if (!v) return false;
+  const t = v.toLowerCase().trim();
+  return t === "1" || t === "true" || t === "yes" || t === "on";
 }

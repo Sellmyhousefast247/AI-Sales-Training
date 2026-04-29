@@ -20,6 +20,7 @@ export { RentCastProvider } from "./providers/rentcast";
 export { BridgeProvider } from "./providers/bridge";
 export { GreatSchoolsProvider } from "./providers/greatschools";
 export { FbiCrimeProvider } from "./providers/fbi-crime";
+export { LotSignalsProvider } from "./providers/lot-signals";
 export { warmZip, warmDueQueue, enqueueZip } from "./warmer";
 export type { WarmContext, WarmResult } from "./warmer";
 export {
