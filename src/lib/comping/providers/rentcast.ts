@@ -159,7 +159,34 @@ function mapRentCastComp(
     garage_stalls: num(c?.features?.garageSpaces) ?? undefined,
     is_distressed: false,
     property_type: mapPropertyType(c?.propertyType),
+    photo_urls: extractRentCastPhotos(c),
   };
+}
+
+const RENTCAST_MAX_PHOTOS = 5;
+
+/**
+ * RentCast packs photos under different keys depending on the endpoint:
+ * `images` on listings, `photos` on AVM comparables, `propertyImages`
+ * on property detail. Items can be plain string URLs or objects with
+ * a `url` field. We dedupe and cap at 5.
+ */
+function extractRentCastPhotos(c: any): string[] | undefined {
+  const candidates = [c?.images, c?.photos, c?.propertyImages];
+  const out: string[] = [];
+  for (const arr of candidates) {
+    if (!Array.isArray(arr)) continue;
+    for (const item of arr) {
+      const url =
+        typeof item === "string" ? item :
+        typeof item?.url === "string" ? item.url :
+        typeof item?.photoUrl === "string" ? item.photoUrl :
+        typeof item?.imageUrl === "string" ? item.imageUrl : null;
+      if (url) out.push(url);
+    }
+  }
+  if (out.length === 0) return undefined;
+  return Array.from(new Set(out)).slice(0, RENTCAST_MAX_PHOTOS);
 }
 
 function mapListingStatus(s: unknown): "active" | "pending" {

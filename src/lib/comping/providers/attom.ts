@@ -199,7 +199,42 @@ function mapAttomToComp(
     is_distressed:
       String(p?.sale?.amount?.saledisclosuretype ?? "").toLowerCase().includes("foreclosure"),
     property_type: mapPropertyType(p?.summary?.propclass),
+    photo_urls: extractAttomPhotos(p),
   };
+}
+
+const ATTOM_MAX_PHOTOS = 5;
+
+/**
+ * ATTOM responses sometimes include a `media` collection (e.g. via the
+ * /property/detailwithphotos endpoint) or a `photos` array (legacy).
+ * Both shapes are tolerated; if neither is present, photos stay undefined.
+ */
+function extractAttomPhotos(p: any): string[] | undefined {
+  const out: string[] = [];
+
+  const media = p?.media;
+  if (Array.isArray(media)) {
+    for (const m of media) {
+      const url = typeof m?.PhotoURL === "string" ? m.PhotoURL :
+                  typeof m?.photoURL === "string" ? m.photoURL :
+                  typeof m?.url === "string" ? m.url : null;
+      if (url) out.push(url);
+    }
+  }
+
+  const photos = p?.photos;
+  if (Array.isArray(photos)) {
+    for (const ph of photos) {
+      const url = typeof ph === "string" ? ph :
+                  typeof ph?.url === "string" ? ph.url :
+                  typeof ph?.photoUrl === "string" ? ph.photoUrl : null;
+      if (url) out.push(url);
+    }
+  }
+
+  if (out.length === 0) return undefined;
+  return Array.from(new Set(out)).slice(0, ATTOM_MAX_PHOTOS);
 }
 
 function inferCondition(_p: any): CompCondition {

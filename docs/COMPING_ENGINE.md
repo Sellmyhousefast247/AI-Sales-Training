@@ -440,6 +440,17 @@ Phase 9 (subject-photo vision pre-fill):
 - Tests cover the empty-input, fully-empty-strings, and no-API-key
   paths.
 
+Phase 10 (ATTOM + RentCast photo capture):
+- ATTOM provider's `mapAttomToComp` now extracts `photo_urls` from
+  either a `media[]` collection (the
+  /property/detailwithphotos shape) or a legacy `photos[]` array.
+  Tolerates `PhotoURL` / `photoURL` / `url` casings, dedupes, caps at 5.
+- RentCast provider's `mapRentCastComp` reads `images`, `photos`, and
+  `propertyImages` collections, accepting either string URLs or
+  objects with `url` / `imageUrl` / `photoUrl`. Same dedupe + cap.
+- Photos from these providers automatically flow into the orchestrator's
+  photo-classifier pass — no other code changes needed.
+
 What's **still not** here:
-- ATTOM / RentCast photo capture for comps (only Bridge surfaces
-  media today).
+- Native file upload (Supabase Storage) for the calculator photos
+  field — currently URL-paste only.

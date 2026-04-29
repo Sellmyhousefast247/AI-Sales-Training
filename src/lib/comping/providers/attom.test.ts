@@ -107,4 +107,63 @@ describe("AttomProvider.pullComps", () => {
     expect(comps[1]).toMatchObject({ source: "attom", status: "active", price: 340_000 });
     expect(comps[0].distance_mi).toBeGreaterThan(0);
   });
+
+  it("extracts photo URLs from media[] and dedupes/caps at 5", async () => {
+    const fetchImpl = vi.fn(async (url: string) => {
+      const property = url.includes("/sale/snapshot")
+        ? [
+            {
+              identifier: { attomId: "S1" },
+              location: { latitude: 30.27, longitude: -97.74 },
+              building: { rooms: { beds: 3, bathstotal: 2 }, size: { universalsize: 1500 } },
+              sale: { amount: { saleamt: 300_000 } },
+              media: [
+                { PhotoURL: "https://x/1.jpg" },
+                { photoURL: "https://x/2.jpg" }, // alternate casing
+                { url: "https://x/3.jpg" },
+                { PhotoURL: "https://x/4.jpg" },
+                { PhotoURL: "https://x/5.jpg" },
+                { PhotoURL: "https://x/6.jpg" },
+                { PhotoURL: "https://x/1.jpg" }, // duplicate
+              ],
+            },
+          ]
+        : [];
+      return new Response(JSON.stringify({ property }), { status: 200 });
+    });
+    const p = new AttomProvider({ apiKey: "k", fetchImpl: fetchImpl as any });
+    const comps = await p.pullComps(
+      { address: "x", beds: 3, baths: 2, sqft: 1500, property_type: "single_family", lat: 30.27, lng: -97.74 },
+      { radiusMi: 0.5, monthsBack: 6 }
+    );
+    expect(comps[0].photo_urls).toEqual([
+      "https://x/1.jpg",
+      "https://x/2.jpg",
+      "https://x/3.jpg",
+      "https://x/4.jpg",
+      "https://x/5.jpg",
+    ]);
+  });
+
+  it("leaves photo_urls undefined when ATTOM returns no media", async () => {
+    const fetchImpl = vi.fn(async (url: string) => {
+      const property = url.includes("/sale/snapshot")
+        ? [
+            {
+              identifier: { attomId: "S2" },
+              location: { latitude: 30.27, longitude: -97.74 },
+              building: { rooms: { beds: 3, bathstotal: 2 }, size: { universalsize: 1500 } },
+              sale: { amount: { saleamt: 280_000 } },
+            },
+          ]
+        : [];
+      return new Response(JSON.stringify({ property }), { status: 200 });
+    });
+    const p = new AttomProvider({ apiKey: "k", fetchImpl: fetchImpl as any });
+    const comps = await p.pullComps(
+      { address: "x", beds: 3, baths: 2, sqft: 1500, property_type: "single_family", lat: 30.27, lng: -97.74 },
+      { radiusMi: 0.5, monthsBack: 6 }
+    );
+    expect(comps[0].photo_urls).toBeUndefined();
+  });
 });
