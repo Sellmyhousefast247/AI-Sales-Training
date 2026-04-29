@@ -22,16 +22,45 @@ interface AnalysisRow {
   users: { id: string; full_name: string | null; email: string; team_id: string | null } | null;
 }
 
+const PAGE_SIZE = 25;
+
+const SORTABLE_COLUMNS = {
+  created_at: "created_at",
+  arv: "arv",
+  as_is_value: "as_is_value",
+  repair_estimate: "repair_estimate",
+  wholesale_mao: "wholesale_mao",
+  novation_mao: "novation_mao",
+  comps_used: "comps_used",
+} as const;
+
+type SortKey = keyof typeof SORTABLE_COLUMNS;
+
 export default async function CompingListPage({
   searchParams,
 }: {
-  searchParams: Promise<{ rep?: string; team?: string }>;
+  searchParams: Promise<{
+    rep?: string;
+    team?: string;
+    sort?: string;
+    dir?: string;
+    page?: string;
+  }>;
 }) {
   const profile = await getCurrentProfile();
   if (!profile?.company_id) redirect("/login");
   const params = await searchParams;
   const repFilter = params.rep || null;
   const teamFilter = params.team || null;
+
+  const sort: SortKey =
+    params.sort && params.sort in SORTABLE_COLUMNS
+      ? (params.sort as SortKey)
+      : "created_at";
+  const dir: "asc" | "desc" = params.dir === "asc" ? "asc" : "desc";
+  const page = Math.max(1, parseInt(params.page ?? "1", 10) || 1);
+  const fromIdx = (page - 1) * PAGE_SIZE;
+  const toIdx = fromIdx + PAGE_SIZE - 1;
 
   const supabase = await createSupabaseServerClient();
 
@@ -69,11 +98,12 @@ export default async function CompingListPage({
       buying_pct, wholesale_mao, novation_mao, confidence_score, comps_used,
       comp_subjects:subject_id (id, address, city, state),
       users:created_by (id, full_name, email, team_id)
-    `
+    `,
+      { count: "exact" }
     )
     .eq("company_id", profile.company_id)
-    .order("created_at", { ascending: false })
-    .limit(100);
+    .order(SORTABLE_COLUMNS[sort], { ascending: dir === "asc" })
+    .range(fromIdx, toIdx);
 
   if (repFilter) q = q.eq("created_by", repFilter);
   if (teamMemberIds) {
@@ -85,8 +115,10 @@ export default async function CompingListPage({
     }
   }
 
-  const { data, error } = await q;
+  const { data, error, count } = await q;
   const rows: AnalysisRow[] = (data ?? []) as unknown as AnalysisRow[];
+  const totalCount = count ?? 0;
+  const totalPages = Math.max(1, Math.ceil(totalCount / PAGE_SIZE));
   const stats = computeListStats(rows as AnalysisListItem[]);
 
   const role = profile.role ?? "rep";
@@ -187,15 +219,29 @@ export default async function CompingListPage({
           <table className="w-full text-sm">
             <thead className="bg-ink-50 text-left text-xs uppercase tracking-wide text-ink-500">
               <tr>
-                <th className="px-4 py-3">When</th>
+                <SortHeader col="created_at" current={sort} dir={dir} ctx={params}>
+                  When
+                </SortHeader>
                 <th className="px-4 py-3">Property</th>
                 <th className="px-4 py-3">Created by</th>
-                <th className="px-4 py-3 text-right">ARV</th>
-                <th className="px-4 py-3 text-right">As-Is</th>
-                <th className="px-4 py-3 text-right">Repairs</th>
-                <th className="px-4 py-3 text-right">Wholesale MAO</th>
-                <th className="px-4 py-3 text-right">Novation MAO</th>
-                <th className="px-4 py-3">Confidence</th>
+                <SortHeader col="arv" current={sort} dir={dir} ctx={params} align="right">
+                  ARV
+                </SortHeader>
+                <SortHeader col="as_is_value" current={sort} dir={dir} ctx={params} align="right">
+                  As-Is
+                </SortHeader>
+                <SortHeader col="repair_estimate" current={sort} dir={dir} ctx={params} align="right">
+                  Repairs
+                </SortHeader>
+                <SortHeader col="wholesale_mao" current={sort} dir={dir} ctx={params} align="right">
+                  Wholesale MAO
+                </SortHeader>
+                <SortHeader col="novation_mao" current={sort} dir={dir} ctx={params} align="right">
+                  Novation MAO
+                </SortHeader>
+                <SortHeader col="comps_used" current={sort} dir={dir} ctx={params}>
+                  Confidence
+                </SortHeader>
               </tr>
             </thead>
             <tbody className="divide-y divide-ink-100">
@@ -237,9 +283,119 @@ export default async function CompingListPage({
               })}
             </tbody>
           </table>
+          {totalPages > 1 ? (
+            <Pagination page={page} totalPages={totalPages} totalCount={totalCount} ctx={params} />
+          ) : null}
         </div>
       )}
     </div>
+  );
+}
+
+type Ctx = { rep?: string; team?: string; sort?: string; dir?: string; page?: string };
+
+function buildHref(overrides: Partial<Ctx>, ctx: Ctx): string {
+  const merged: Ctx = { ...ctx, ...overrides };
+  const params = new URLSearchParams();
+  for (const [k, v] of Object.entries(merged)) {
+    if (v != null && v !== "") params.set(k, String(v));
+  }
+  const qs = params.toString();
+  return qs ? `/comping?${qs}` : "/comping";
+}
+
+function SortHeader({
+  col,
+  current,
+  dir,
+  ctx,
+  align,
+  children,
+}: {
+  col: SortKey;
+  current: SortKey;
+  dir: "asc" | "desc";
+  ctx: Ctx;
+  align?: "right";
+  children: React.ReactNode;
+}) {
+  const active = col === current;
+  // Toggle direction on the active column; switch column → default desc
+  // for "When" (newest first) and asc for the others.
+  const nextDir = active ? (dir === "asc" ? "desc" : "asc") : col === "created_at" ? "desc" : "asc";
+  const href = buildHref({ sort: col, dir: nextDir, page: "1" }, ctx);
+  const arrow = active ? (dir === "asc" ? " ↑" : " ↓") : "";
+  return (
+    <th className={`px-4 py-3 ${align === "right" ? "text-right" : ""}`}>
+      <Link
+        href={href}
+        className={`inline-flex items-center gap-1 hover:text-ink-900 ${active ? "text-ink-900" : ""}`}
+      >
+        {children}
+        {arrow}
+      </Link>
+    </th>
+  );
+}
+
+function Pagination({
+  page,
+  totalPages,
+  totalCount,
+  ctx,
+}: {
+  page: number;
+  totalPages: number;
+  totalCount: number;
+  ctx: Ctx;
+}) {
+  const prev = Math.max(1, page - 1);
+  const next = Math.min(totalPages, page + 1);
+  const pageHref = (p: number) => buildHref({ page: String(p) }, ctx);
+  return (
+    <div className="flex items-center justify-between border-t border-ink-200 bg-ink-50 px-4 py-3 text-xs">
+      <div className="text-ink-600">
+        Page {page} of {totalPages} · {totalCount.toLocaleString()} total
+      </div>
+      <div className="flex items-center gap-1">
+        <PageLink href={pageHref(1)} disabled={page === 1}>
+          ‹‹ First
+        </PageLink>
+        <PageLink href={pageHref(prev)} disabled={page === 1}>
+          ‹ Prev
+        </PageLink>
+        <PageLink href={pageHref(next)} disabled={page >= totalPages}>
+          Next ›
+        </PageLink>
+        <PageLink href={pageHref(totalPages)} disabled={page >= totalPages}>
+          Last ››
+        </PageLink>
+      </div>
+    </div>
+  );
+}
+
+function PageLink({
+  href,
+  disabled,
+  children,
+}: {
+  href: string;
+  disabled: boolean;
+  children: React.ReactNode;
+}) {
+  if (disabled) {
+    return (
+      <span className="rounded border border-ink-200 bg-white px-2 py-1 text-ink-300">{children}</span>
+    );
+  }
+  return (
+    <Link
+      href={href}
+      className="rounded border border-ink-300 bg-white px-2 py-1 text-ink-700 hover:bg-ink-100"
+    >
+      {children}
+    </Link>
   );
 }
 

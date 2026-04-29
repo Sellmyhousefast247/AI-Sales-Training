@@ -27,6 +27,8 @@ export function CompingFilterBar({ reps, teams, selectedRep, selectedTeam }: Pro
     const next = new URLSearchParams(params.toString());
     if (value) next.set(key, value);
     else next.delete(key);
+    // Changing a filter invalidates the current page — reset to 1.
+    next.delete("page");
     router.push(`/comping?${next.toString()}`);
   }
 
