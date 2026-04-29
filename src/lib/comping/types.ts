@@ -37,7 +37,10 @@ export const compRecordSchema = z.object({
   source: z.string(),
   source_id: z.string().optional(),
   status: compStatusSchema,
-  price: z.number().positive(),
+  price: z.number().nonnegative(),
+  list_price: z.number().positive().optional(),
+  original_list_price: z.number().positive().optional(),
+  dom_days: z.number().int().nonnegative().optional(),
   close_date: z.string().optional(), // ISO date for solds
   list_date: z.string().optional(),
   beds: z.number().int().nonnegative(),
@@ -50,6 +53,9 @@ export const compRecordSchema = z.object({
   garage_stalls: z.number().int().nonnegative().optional(),
   is_distressed: z.boolean().default(false),
   property_type: propertyTypeSchema.default("single_family"),
+  remarks: z.string().optional(),
+  /** True when sale price was imputed from list price (non-disclosure states). */
+  price_imputed: z.boolean().optional(),
 });
 export type CompRecord = z.infer<typeof compRecordSchema>;
 

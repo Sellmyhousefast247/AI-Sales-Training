@@ -313,14 +313,40 @@ Phase 2 (providers + cache + persistence):
   `src/lib/comping/orchestrator.ts`
 - Migration for `comp_subjects`, `comp_records`, `comp_market_signals`,
   `deal_analyses` with the same RLS pattern as 0001 — `supabase/migrations/0004_comping_engine.sql`
-- API now supports two body shapes:
+- API supports two body shapes:
   - `manual` — caller supplies subject + comps; pure function, no auth
   - `lookup` — caller supplies just an address; engine resolves via cache +
     providers, persists, and returns the full result
 - Provider unit tests with mocked fetch + an end-to-end `analyzeDeal` test.
 
+Phase 3 (MLS + non-disclosure handling):
+- Bridge Interactive MLS provider (RESO Web API v2) —
+  `src/lib/comping/providers/bridge.ts`. Captures ListPrice,
+  OriginalListPrice, ClosePrice, DaysOnMarket, PublicRemarks. Auth via
+  Bearer header, per-dataset (per-MLS) at construction.
+- Non-disclosure state handling — `src/lib/comping/non-disclosure.ts`.
+  When the subject is in a NDS (TX, ID, KS, MS, MO, MT, NM, ND, UT, WY,
+  partial AK/LA), county-records solds frequently come back with
+  `price=0`. We:
+  1. Find the most similar comps via `rankBySimilarity()` (sqft, beds,
+     baths, year, distance, property type).
+  2. Reference price-listing history (`list_price`,
+     `original_list_price`, `dom_days`) instead of close price.
+  3. Impute the sale price with `list_price × sale-to-list-ratio`,
+     where SLR is derived from the active/pending market temperature
+     (1.02 hot → 0.94 soft).
+  4. Apply a DOM penalty (½% per 30 days beyond the first 30, capped
+     at 6%) for slow movers.
+  5. Skip imputation entirely for any comp that came from Bridge MLS
+     with a real ClosePrice — that's authoritative.
+- Orchestrator now: pulls comps → runs Claude classifier on remarks →
+  imputes missing prices for NDS subjects → analyzes → persists. The
+  output includes `non_disclosure_state` + `comps_imputed` counters and
+  emits a warning when imputation was used.
+- Tests: Bridge provider with mocked RESO fetch (sold + active + NDS
+  fallback path), non-disclosure imputation + similarity ranking.
+
 What's **still not** here:
-- Bridge MLS provider (needs broker sponsorship).
 - GreatSchools / crime feed providers.
 - Photo-vision condition pipeline.
 - UI.

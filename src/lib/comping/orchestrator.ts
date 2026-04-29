@@ -7,8 +7,11 @@ import {
   saveMarketSignals,
   upsertSubject,
 } from "./cache";
+import { tagCompConditions } from "./condition-classifier";
 import { analyzeDeal } from "./index";
+import { imputeMissingPrices, isNonDisclosureState } from "./non-disclosure";
 import { AttomProvider } from "./providers/attom";
+import { BridgeProvider } from "./providers/bridge";
 import { RentCastProvider } from "./providers/rentcast";
 import { ProviderRouter, type CompDataProvider } from "./providers/types";
 import type {
@@ -39,6 +42,8 @@ export interface FetchAndAnalyzeInput {
   novation_fee?: number;
   /** When true, persist subject/comps/analysis to Supabase. Default true. */
   persist?: boolean;
+  /** When true, run the Claude condition classifier on comp remarks. Default true when ANTHROPIC_API_KEY is set. */
+  classify_conditions?: boolean;
 }
 
 export interface FetchAndAnalyzeResult {
@@ -47,12 +52,14 @@ export interface FetchAndAnalyzeResult {
   subject_id: string | null;
   analysis_id: string | null;
   comps_pulled: number;
+  comps_imputed: number;
+  non_disclosure_state: boolean;
 }
 
 /**
- * End-to-end: cache → providers → analyze → persist. Falls back gracefully
- * to manual overrides when providers are not configured (no API keys), which
- * is the path most tests run through.
+ * End-to-end: cache → providers → classify → impute → analyze → persist.
+ * Falls back gracefully to manual overrides when providers are not
+ * configured, which is the path most tests run through.
  */
 export async function fetchAndAnalyze(
   input: FetchAndAnalyzeInput
@@ -77,7 +84,7 @@ export async function fetchAndAnalyze(
   }
   if (!subject) {
     throw new Error(
-      "Could not resolve subject property. Provide subject_override or configure ATTOM/RentCast keys."
+      "Could not resolve subject property. Provide subject_override or configure provider keys."
     );
   }
 
@@ -93,10 +100,28 @@ export async function fetchAndAnalyze(
   }
   if (comps.length === 0 && router) {
     comps = await router.pullComps(subject, { radiusMi: 0.5, monthsBack: 12, limit: 50 });
-    if (persist && subjectId) await saveComps(ctx, subjectId, comps);
   }
 
-  // 3. Market signals — manual override > cache > providers.
+  // 3. Tag condition from MLS remarks via Claude. Only runs when remarks
+  //    are present and a key is set; quietly no-ops otherwise.
+  const shouldClassify = input.classify_conditions ?? !!process.env.ANTHROPIC_API_KEY;
+  if (shouldClassify) {
+    const remarksById: Record<string, string> = {};
+    for (const c of comps) {
+      if (c.source_id && c.remarks && c.condition === "average") {
+        remarksById[c.source_id] = c.remarks;
+      }
+    }
+    if (Object.keys(remarksById).length > 0) {
+      try {
+        comps = await tagCompConditions(comps, remarksById);
+      } catch {
+        // classifier is best-effort
+      }
+    }
+  }
+
+  // 4. Market signals — manual override > cache > providers.
   let signals: MarketSignals = input.signals_override ?? {};
   if (Object.keys(signals).length === 0 && persist && subjectId) {
     const cachedSignals = await getCachedMarketSignals(ctx, subjectId);
@@ -109,7 +134,23 @@ export async function fetchAndAnalyze(
     }
   }
 
-  // 4. Analyze.
+  // 5. Non-disclosure state imputation. Comps from non-MLS sources in NDS
+  //    states often have price=0 even when sold; we impute from list_price
+  //    + DOM using the market sale-to-list ratio.
+  const ndsState = isNonDisclosureState(subject.state);
+  const before = comps.map((c) => c.price);
+  comps = imputeMissingPrices(subject, comps, signals);
+  const compsImputed = comps.reduce(
+    (n, c, i) => n + (c.price_imputed && c.price !== before[i] ? 1 : 0),
+    0
+  );
+
+  // Persist comps after enrichment so the cache stores the resolved data.
+  if (persist && subjectId && comps.length > 0) {
+    await saveComps(ctx, subjectId, comps);
+  }
+
+  // 6. Analyze.
   const output = analyzeDeal({
     subject,
     condition_text: input.condition_text ?? "",
@@ -118,8 +159,13 @@ export async function fetchAndAnalyze(
     wholesale_fee: input.wholesale_fee ?? 20_000,
     novation_fee: input.novation_fee ?? 40_000,
   });
+  if (ndsState && compsImputed > 0) {
+    output.warnings.push(
+      `Non-disclosure state: ${compsImputed} comp price(s) imputed from list price + DOM.`
+    );
+  }
 
-  // 5. Persist analysis.
+  // 7. Persist analysis.
   let analysisId: string | null = null;
   if (persist && subjectId) {
     analysisId = await saveAnalysis(ctx, subjectId, ctx.userId ?? null, output);
@@ -131,11 +177,21 @@ export async function fetchAndAnalyze(
     subject_id: subjectId,
     analysis_id: analysisId,
     comps_pulled: comps.length,
+    comps_imputed: compsImputed,
+    non_disclosure_state: ndsState,
   };
 }
 
 function buildRouter(): ProviderRouter | null {
   const providers: CompDataProvider[] = [];
+  if (process.env.BRIDGE_ACCESS_TOKEN && process.env.BRIDGE_DATASET) {
+    providers.push(
+      new BridgeProvider({
+        accessToken: process.env.BRIDGE_ACCESS_TOKEN,
+        dataset: process.env.BRIDGE_DATASET,
+      })
+    );
+  }
   if (process.env.ATTOM_API_KEY) {
     providers.push(new AttomProvider({ apiKey: process.env.ATTOM_API_KEY }));
   }

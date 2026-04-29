@@ -17,6 +17,16 @@ export * from "./comp-pipeline";
 export * from "./providers/types";
 export { AttomProvider } from "./providers/attom";
 export { RentCastProvider } from "./providers/rentcast";
+export { BridgeProvider } from "./providers/bridge";
+export {
+  NON_DISCLOSURE_STATES,
+  isNonDisclosureState,
+  inferSaleToListRatio,
+  imputeSalePrice,
+  imputeMissingPrices,
+  similarityScore,
+  rankBySimilarity,
+} from "./non-disclosure";
 export { fetchAndAnalyze } from "./orchestrator";
 export type {
   FetchAndAnalyzeInput,
