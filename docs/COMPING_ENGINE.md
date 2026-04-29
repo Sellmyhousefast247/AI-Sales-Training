@@ -520,6 +520,22 @@ Phase 14 (PDF export + shareable link):
     Reps see Print only.
 - 120 tests still pass; typecheck clean on every new file.
 
-What's **still not** here:
-- Native file upload (Supabase Storage) for the calculator photos
-  field — currently URL-paste only.
+Phase 15 (file upload + bulk zip import):
+- Migration 0011: a public `comp-photos` Supabase Storage bucket.
+  Public so Claude vision can fetch URLs server-side and shared
+  links display photos without auth. Server-side admin uploads
+  bypass storage RLS; the API constructs paths as
+  `<company_id>/<uuid>.<ext>` so each tenant lands in its own prefix.
+- `POST /api/comp/upload-photo`: multipart upload, 5MB cap, image/*
+  MIME allow-list (JPG / PNG / WebP / HEIC). Returns the public URL.
+- Calculator form: "Upload photos" button alongside the URL textarea.
+  Multi-file, accepts image/*, uploads each in turn, appends the
+  resulting URLs into the same textarea so "Analyze photos" still
+  works the same way.
+- `POST /api/comp/warm/bulk`: accepts `{ rows: [{zip, state?, city?,
+  priority?}] }`, up to 500 per call. Manager+ only. Per-row error
+  reporting in the response.
+- Warm queue page: collapsible "Bulk import zips" section. CSV paste
+  with `zip,state,city,priority` per line, header row auto-skipped,
+  zip validation, state UPPER-cased, priority clamped to [0,100].
+  Result line shows added vs total + any per-row errors.

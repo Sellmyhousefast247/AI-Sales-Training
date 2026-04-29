@@ -27,6 +27,40 @@ export function WarmQueueTable({ initialRows }: { initialRows: QueueRow[] }) {
   const [priority, setPriority] = useState("0");
   const [runNow, setRunNow] = useState(false);
 
+  // Bulk-import state
+  const [bulkOpen, setBulkOpen] = useState(false);
+  const [bulkCsv, setBulkCsv] = useState("");
+  const [bulkResult, setBulkResult] = useState<string | null>(null);
+
+  async function bulkImport() {
+    setBulkResult(null);
+    const rows = parseBulkCsv(bulkCsv);
+    if (rows.length === 0) {
+      setBulkResult("No valid rows. Use 'zip,state,city,priority' — one per line.");
+      return;
+    }
+    setBusy("bulk");
+    const res = await fetch("/api/comp/warm/bulk", {
+      method: "POST",
+      headers: { "content-type": "application/json" },
+      body: JSON.stringify({ rows }),
+    });
+    setBusy(null);
+    if (!res.ok) {
+      const j = await res.json().catch(() => ({}));
+      setBulkResult(j.error ?? "Bulk import failed.");
+      return;
+    }
+    const j = (await res.json()) as { added: number; errors: Array<{ zip: string; error: string }> };
+    setBulkResult(
+      `Added ${j.added}/${rows.length}.${
+        j.errors.length > 0 ? " Errors: " + j.errors.map((e) => `${e.zip}: ${e.error}`).join("; ") : ""
+      }`
+    );
+    setBulkCsv("");
+    router.refresh();
+  }
+
   const dueCount = useMemo(
     () => rows.filter((r) => !r.last_warmed_at || stale(r.last_warmed_at)).length,
     [rows]
@@ -123,6 +157,52 @@ export function WarmQueueTable({ initialRows }: { initialRows: QueueRow[] }) {
 
   return (
     <div className="space-y-6">
+      {/* Bulk import */}
+      <section className="rounded-lg border border-ink-200 bg-white p-5">
+        <div className="flex items-center justify-between">
+          <h2 className="text-sm font-semibold">Bulk import zips</h2>
+          <button
+            type="button"
+            onClick={() => setBulkOpen((v) => !v)}
+            className="text-xs text-ink-500 hover:text-ink-900"
+          >
+            {bulkOpen ? "Hide" : "Show"}
+          </button>
+        </div>
+        {bulkOpen ? (
+          <div className="mt-3 space-y-2">
+            <p className="text-xs text-ink-500">
+              One row per line:{" "}
+              <code className="rounded bg-ink-100 px-1 py-0.5 text-ink-700">
+                zip,state,city,priority
+              </code>
+              . State and city are optional. A header row (<code>zip,state,city,priority</code>)
+              is detected and skipped.
+            </p>
+            <textarea
+              value={bulkCsv}
+              onChange={(e) => setBulkCsv(e.target.value)}
+              rows={6}
+              placeholder={"78701,TX,Austin,10\n90210,CA,Beverly Hills,5\n10001,NY,New York,0"}
+              className={`${inputCls} font-mono text-xs`}
+            />
+            <div className="flex items-center gap-2">
+              <button
+                type="button"
+                onClick={bulkImport}
+                disabled={busy === "bulk" || !bulkCsv.trim()}
+                className="rounded-md bg-ink-900 px-3 py-1.5 text-xs font-medium text-white hover:bg-ink-800 disabled:opacity-50"
+              >
+                {busy === "bulk" ? "Importing…" : "Import"}
+              </button>
+              {bulkResult ? (
+                <span className="text-xs text-ink-700">{bulkResult}</span>
+              ) : null}
+            </div>
+          </div>
+        ) : null}
+      </section>
+
       {/* Add zip */}
       <section className="rounded-lg border border-ink-200 bg-white p-5">
         <h2 className="text-sm font-semibold">Add a zip</h2>
@@ -305,6 +385,40 @@ function Field({
       {children}
     </label>
   );
+}
+
+interface BulkRow {
+  zip: string;
+  state?: string;
+  city?: string;
+  priority?: number;
+}
+
+function parseBulkCsv(text: string): BulkRow[] {
+  const lines = text
+    .split(/\r?\n/)
+    .map((l) => l.trim())
+    .filter(Boolean);
+  const rows: BulkRow[] = [];
+  for (const [i, line] of lines.entries()) {
+    const cells = line.split(",").map((c) => c.trim());
+    // Skip a header row if it appears first.
+    if (i === 0 && /^zip$/i.test(cells[0] ?? "")) continue;
+    const zip = cells[0];
+    if (!zip || !/^\d{3,}/.test(zip)) continue;
+    const row: BulkRow = { zip };
+    const state = cells[1];
+    const city = cells[2];
+    const priority = cells[3];
+    if (state && /^[A-Za-z]{2}$/.test(state)) row.state = state.toUpperCase();
+    if (city) row.city = city;
+    if (priority) {
+      const n = parseInt(priority, 10);
+      if (Number.isFinite(n)) row.priority = Math.max(0, Math.min(100, n));
+    }
+    rows.push(row);
+  }
+  return rows;
 }
 
 function stale(iso: string): boolean {

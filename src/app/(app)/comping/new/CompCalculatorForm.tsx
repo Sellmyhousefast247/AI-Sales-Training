@@ -47,11 +47,38 @@ export function CompCalculatorForm() {
   const [novationFee, setNovationFee] = useState("40000");
 
   // Photo-driven condition pre-fill — the user pastes URLs (one per line)
-  // and clicks Analyze; vision fills the condition_text textarea.
+  // or uploads files; vision fills the condition_text textarea.
   const [photoUrlsText, setPhotoUrlsText] = useState("");
   const [photoBusy, setPhotoBusy] = useState(false);
   const [photoErr, setPhotoErr] = useState<string | null>(null);
   const [photoSummary, setPhotoSummary] = useState<string | null>(null);
+  const [uploading, setUploading] = useState(0);
+
+  async function uploadFiles(files: FileList | null) {
+    if (!files || files.length === 0) return;
+    setPhotoErr(null);
+    setUploading(files.length);
+    const newUrls: string[] = [];
+    let errored = 0;
+    for (const file of Array.from(files)) {
+      const fd = new FormData();
+      fd.append("file", file);
+      const res = await fetch("/api/comp/upload-photo", { method: "POST", body: fd });
+      if (!res.ok) {
+        const j = await res.json().catch(() => ({}));
+        setPhotoErr(j.error ?? `Failed to upload ${file.name}`);
+        errored++;
+        continue;
+      }
+      const j = (await res.json()) as { url: string };
+      newUrls.push(j.url);
+    }
+    setUploading(0);
+    if (newUrls.length === 0) return;
+    const merged = [photoUrlsText.trim(), ...newUrls].filter(Boolean).join("\n");
+    setPhotoUrlsText(merged);
+    if (errored === 0) setPhotoErr(null);
+  }
 
   async function analyzePhotos() {
     const photo_urls = photoUrlsText
@@ -319,8 +346,27 @@ export function CompCalculatorForm() {
       {/* Photos (optional) — pre-fills condition via Claude vision. */}
       <Section
         title="Listing photos (optional)"
-        hint="Paste photo URLs one per line. Claude will inspect them and pre-fill the condition box below."
+        hint="Upload files or paste photo URLs one per line. Claude will inspect them and pre-fill the condition box below."
       >
+        <div className="mb-3 flex items-center gap-3">
+          <label className="cursor-pointer rounded-md border border-ink-300 bg-white px-3 py-1.5 text-xs font-medium hover:bg-ink-100">
+            {uploading > 0 ? `Uploading ${uploading}…` : "Upload photos"}
+            <input
+              type="file"
+              accept="image/*"
+              multiple
+              className="hidden"
+              disabled={uploading > 0}
+              onChange={(e) => {
+                uploadFiles(e.target.files);
+                e.target.value = "";
+              }}
+            />
+          </label>
+          <span className="text-xs text-ink-500">
+            JPG / PNG / WebP / HEIC up to 5MB each
+          </span>
+        </div>
         <textarea
           value={photoUrlsText}
           onChange={(e) => setPhotoUrlsText(e.target.value)}
