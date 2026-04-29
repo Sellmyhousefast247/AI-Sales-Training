@@ -4,6 +4,7 @@ import { createSupabaseServerClient } from "@/lib/supabase/server";
 import { getCurrentProfile } from "@/lib/queries";
 import { formatDateTime, formatMoney, formatPct } from "@/lib/utils";
 import type { AnalyzeDealOutput } from "@/lib/comping";
+import { CompsEditor, type CompRow } from "./CompsEditor";
 
 interface AnalysisRow {
   id: string;
@@ -66,6 +67,12 @@ export default async function AnalysisDetailPage({ params }: { params: Promise<{
   const subj = row.comp_subjects;
   const breakdown = row.payload?.repair_breakdown;
   const warnings = Array.isArray(row.warnings) ? (row.warnings as string[]) : [];
+
+  // Pull all comps for the subject (including excluded) so the editor can
+  // surface them. RLS on comp_records keeps this tenant-scoped.
+  const compRows: CompRow[] = subj?.id
+    ? await loadComps(supabase, subj.id)
+    : [];
 
   return (
     <div className="space-y-8 p-8">
@@ -179,8 +186,48 @@ export default async function AnalysisDetailPage({ params }: { params: Promise<{
           </dl>
         </section>
       ) : null}
+
+      {/* Comps editor — let users override what providers returned and
+          recompute. */}
+      <CompsEditor analysisId={row.id} comps={compRows} />
     </div>
   );
+}
+
+async function loadComps(
+  supabase: Awaited<ReturnType<typeof createSupabaseServerClient>>,
+  subjectId: string
+): Promise<CompRow[]> {
+  const { data } = await supabase
+    .from("comp_records")
+    .select(
+      `id, source, source_id, status, price, list_price, dom_days, close_date,
+       beds, baths, sqft, distance_mi, condition, is_distressed, excluded,
+       notes, remarks`
+    )
+    .eq("subject_id", subjectId)
+    .order("status", { ascending: true })
+    .order("distance_mi", { ascending: true });
+  const rows = (data ?? []) as Array<Record<string, unknown>>;
+  return rows.map((r) => ({
+    id: r.id as string,
+    source: (r.source as string) ?? "",
+    source_id: (r.source_id as string) ?? null,
+    status: r.status as CompRow["status"],
+    price: Number(r.price ?? 0),
+    list_price: r.list_price == null ? null : Number(r.list_price),
+    dom_days: r.dom_days == null ? null : Number(r.dom_days),
+    close_date: (r.close_date as string) ?? null,
+    beds: Number(r.beds ?? 0),
+    baths: Number(r.baths ?? 0),
+    sqft: Number(r.sqft ?? 0),
+    distance_mi: Number(r.distance_mi ?? 0),
+    condition: r.condition as CompRow["condition"],
+    is_distressed: !!r.is_distressed,
+    excluded: !!r.excluded,
+    notes: (r.notes as string | null) ?? null,
+    remarks: (r.remarks as string | null) ?? null,
+  }));
 }
 
 function BigStat({

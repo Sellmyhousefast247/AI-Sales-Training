@@ -90,13 +90,36 @@ export async function getCachedComps(
     .from("comp_records")
     .select("*")
     .eq("company_id", ctx.companyId)
-    .eq("subject_id", subjectId);
+    .eq("subject_id", subjectId)
+    .eq("excluded", false);
   const rows = (data ?? []) as Array<{ fetched_at: string } & Record<string, unknown>>;
   if (rows.length === 0) return null;
   let newest = rows[0].fetched_at;
   for (const r of rows) if (r.fetched_at > newest) newest = r.fetched_at;
   if (isStale(newest, COMPS_TTL_HOURS)) return null;
   return rows.map(rowToComp);
+}
+
+/** All comps for a subject, including excluded ones — for the editor UI. */
+export async function getAllCompsForSubject(
+  ctx: CacheCtx,
+  subjectId: string
+): Promise<Array<CompRecord & { id: string; excluded: boolean; notes: string | null }>> {
+  const db = createSupabaseAdminClient();
+  const { data } = await db
+    .from("comp_records")
+    .select("*")
+    .eq("company_id", ctx.companyId)
+    .eq("subject_id", subjectId)
+    .order("status", { ascending: true })
+    .order("distance_mi", { ascending: true });
+  const rows = (data ?? []) as Array<Record<string, unknown> & { id: string; excluded: boolean; notes: string | null }>;
+  return rows.map((r) => ({
+    ...rowToComp(r),
+    id: r.id,
+    excluded: r.excluded ?? false,
+    notes: (r.notes as string | null) ?? null,
+  }));
 }
 
 export async function saveComps(
