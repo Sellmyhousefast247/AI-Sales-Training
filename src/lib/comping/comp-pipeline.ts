@@ -165,9 +165,11 @@ export function runCompPipeline(
 ): CompAggregate | null {
   const expanded = expandUntilEnough(subject, allComps, "sold", 3);
   const targeted = expanded.comps.filter((c) => matchesCondition(c.condition, target));
-  // If we don't have enough condition-matched comps, fall back to all solds.
-  const pool = targeted.length >= 3 ? targeted : expanded.comps;
-  const cleaned = removeOutliers(pool);
+  // We deliberately do NOT fall back to non-matching conditions — mixing
+  // renovated and as_is comps would distort both ARV and As-Is. The caller
+  // (analyzeDeal) handles the null case via ARV − repairs.
+  if (targeted.length < 3) return null;
+  const cleaned = removeOutliers(targeted);
   if (cleaned.length === 0) return null;
   const adjusted = adjustComps(subject, cleaned);
   return aggregate(adjusted, expanded.radius);

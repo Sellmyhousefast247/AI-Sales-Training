@@ -296,15 +296,31 @@ create table deal_analyses (
 
 ---
 
-## 10. What's in this PR
+## 10. What's shipped
 
+Phase 1 (foundation):
 - Engine: `src/lib/comping/{types,formulas,repair-estimator,comp-pipeline,index}.ts`
 - Provider interface: `src/lib/comping/providers/types.ts`
 - API: `src/app/api/comp/route.ts` (POST)
 - Tests: formulas + repair estimator
 
-What's **not** here yet (deliberate — waiting for "continue"):
-- Real provider implementations (ATTOM, RentCast, MLS).
-- Supabase cache tables + migration.
-- Condition classifier via Claude.
+Phase 2 (providers + cache + persistence):
+- ATTOM provider — `src/lib/comping/providers/attom.ts`
+- RentCast provider — `src/lib/comping/providers/rentcast.ts`
+- Claude condition classifier — `src/lib/comping/condition-classifier.ts`
+- Supabase cache layer — `src/lib/comping/cache.ts`
+- End-to-end orchestrator (cache → provider → analyze → persist) —
+  `src/lib/comping/orchestrator.ts`
+- Migration for `comp_subjects`, `comp_records`, `comp_market_signals`,
+  `deal_analyses` with the same RLS pattern as 0001 — `supabase/migrations/0004_comping_engine.sql`
+- API now supports two body shapes:
+  - `manual` — caller supplies subject + comps; pure function, no auth
+  - `lookup` — caller supplies just an address; engine resolves via cache +
+    providers, persists, and returns the full result
+- Provider unit tests with mocked fetch + an end-to-end `analyzeDeal` test.
+
+What's **still not** here:
+- Bridge MLS provider (needs broker sponsorship).
+- GreatSchools / crime feed providers.
+- Photo-vision condition pipeline.
 - UI.

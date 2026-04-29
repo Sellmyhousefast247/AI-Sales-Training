@@ -15,6 +15,15 @@ export * from "./formulas";
 export * from "./repair-estimator";
 export * from "./comp-pipeline";
 export * from "./providers/types";
+export { AttomProvider } from "./providers/attom";
+export { RentCastProvider } from "./providers/rentcast";
+export { fetchAndAnalyze } from "./orchestrator";
+export type {
+  FetchAndAnalyzeInput,
+  FetchAndAnalyzeResult,
+  OrchestratorContext,
+} from "./orchestrator";
+export { classifyConditions, tagCompConditions } from "./condition-classifier";
 
 /**
  * End-to-end deal analysis: ARV + As-Is + Repairs + MAOs + confidence.
@@ -48,7 +57,7 @@ export function analyzeDeal(input: AnalyzeDealInput): AnalyzeDealOutput {
 
   // 5. Numbers.
   const arv = arvAgg?.point ?? 0;
-  const asIsValue = asIsAgg?.point ?? Math.round(arv - repair.point);
+  const asIsValue = asIsAgg?.point ?? Math.max(0, Math.round(arv - repair.point));
 
   const wholesale = wholesaleMAO(arv, repair.point, wholesale_fee);
   const novation = novationMAO(asIsValue, novation_fee);
