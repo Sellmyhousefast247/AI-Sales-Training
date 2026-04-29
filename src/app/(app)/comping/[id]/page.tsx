@@ -6,6 +6,7 @@ import { formatDateTime, formatMoney, formatPct } from "@/lib/utils";
 import type { AnalyzeDealOutput } from "@/lib/comping";
 import type { CompSnapshot, SubjectSnapshot } from "@/lib/comping/snapshot";
 import { CompsEditor, type CompRow } from "./CompsEditor";
+import { ShareControls } from "./ShareControls";
 
 interface AnalysisRow {
   id: string;
@@ -26,6 +27,7 @@ interface AnalysisRow {
   payload: AnalyzeDealOutput;
   comps_snapshot: CompSnapshot[] | null;
   subject_snapshot: SubjectSnapshot | null;
+  share_token: string | null;
   comp_subjects: {
     id: string;
     address: string;
@@ -55,7 +57,7 @@ export default async function AnalysisDetailPage({ params }: { params: Promise<{
       repair_estimate, repair_level, buying_pct,
       wholesale_mao, novation_mao, market_adjusted_mao,
       confidence_score, comps_used, warnings, payload,
-      comps_snapshot, subject_snapshot,
+      comps_snapshot, subject_snapshot, share_token,
       comp_subjects:subject_id (
         id, address, city, state, zip, beds, baths, sqft, year_built, lot_sqft, property_type
       )
@@ -78,12 +80,16 @@ export default async function AnalysisDetailPage({ params }: { params: Promise<{
     ? await loadComps(supabase, subj.id)
     : [];
 
+  const role = profile.role ?? "rep";
+  const canShare =
+    role === "manager" || role === "company_admin" || role === "super_admin";
+
   return (
     <div className="space-y-8 p-8">
       <header>
         <div className="flex items-center justify-between">
           <div>
-            <Link href="/comping" className="text-xs text-ink-500 hover:text-ink-900">
+            <Link href="/comping" className="no-print text-xs text-ink-500 hover:text-ink-900">
               ← Back to comping
             </Link>
             <h1 className="mt-1 text-2xl font-semibold">{subj?.address ?? "Analysis"}</h1>
@@ -93,6 +99,13 @@ export default async function AnalysisDetailPage({ params }: { params: Promise<{
             </p>
           </div>
           <ConfidencePill value={row.confidence_score} />
+        </div>
+        <div className="mt-3">
+          <ShareControls
+            analysisId={row.id}
+            initialToken={row.share_token}
+            canShare={canShare}
+          />
         </div>
       </header>
 
@@ -219,7 +232,9 @@ export default async function AnalysisDetailPage({ params }: { params: Promise<{
       {/* Live comps editor — operates on the *current* comp_records for
           the subject. Edits + recompute create a NEW analysis row with
           a fresh snapshot. */}
-      <CompsEditor analysisId={row.id} comps={compRows} />
+      <div className="no-print">
+        <CompsEditor analysisId={row.id} comps={compRows} />
+      </div>
     </div>
   );
 }

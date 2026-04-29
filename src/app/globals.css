@@ -11,3 +11,14 @@ body {
 }
 
 * { -webkit-tap-highlight-color: transparent; }
+
+@media print {
+  /* The (app) layout's sidebar — irrelevant on paper. */
+  aside { display: none !important; }
+  /* Collapse the layout grid so content takes the full page. */
+  .grid { display: block !important; }
+  /* Anything tagged no-print stays out of the PDF. */
+  .no-print { display: none !important; }
+  body { background: white !important; }
+  main { overflow: visible !important; }
+}

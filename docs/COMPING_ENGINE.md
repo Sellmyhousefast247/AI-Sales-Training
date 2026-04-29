@@ -500,6 +500,26 @@ Phase 13 (per-zip appreciation trend):
   provider entry points (no-zip short-circuit, happy path, fetch
   failure).
 
+Phase 14 (PDF export + shareable link):
+- Migration 0010: `share_token uuid` + `shared_at timestamptz` on
+  `deal_analyses`. Unique partial index keeps tokens collision-free
+  while permitting the common NULL case.
+- `POST /api/comp/[id]/share` generates (or reuses) a UUID token
+  and returns the share URL. Manager+ only. `DELETE` revokes by
+  setting the token back to NULL.
+- `/share/comp/[token]` is a public page outside the `(app)` layout
+  group — no auth, no sidebar. Reads via the admin client filtered
+  by token, so RLS isn't bypassed in any meaningful sense (the
+  token *is* the credential). Renders the same MAO + repair
+  breakdown + comp snapshot the owner sees, minus the live editor.
+- Detail page header gets a `ShareControls` client component:
+  - **Print / Save PDF** — `window.print()`. Print CSS in
+    `globals.css` hides the sidebar, the editor, and the share
+    controls themselves so the PDF is clean.
+  - **Create share link** / **Copy link** / **Revoke** — manager+ only.
+    Reps see Print only.
+- 120 tests still pass; typecheck clean on every new file.
+
 What's **still not** here:
 - Native file upload (Supabase Storage) for the calculator photos
   field — currently URL-paste only.
