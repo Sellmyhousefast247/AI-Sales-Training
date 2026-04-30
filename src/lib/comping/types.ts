@@ -108,6 +108,8 @@ export interface CompAggregate {
   median_ppsf: number;
   iqr_pct: number;
   radius_mi: number;
+  /** How many months back the surviving comps came from. */
+  months_back: number;
 }
 
 export interface AnalyzeDealOutput {

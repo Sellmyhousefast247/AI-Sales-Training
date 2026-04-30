@@ -520,6 +520,28 @@ Phase 14 (PDF export + shareable link):
     Reps see Print only.
 - 120 tests still pass; typecheck clean on every new file.
 
+Phase 21 (novation extended-window comping):
+- Novations sell as-is on the MLS — the seller never invests in
+  rehab — so the As-Is comp pool is naturally thinner. The pipeline
+  now uses a separate, longer ladder for the as-is path: months
+  [6, 12, 18, 24] and radius [0.25, 0.5, 1.0, 2.0] mi, vs the ARV
+  default of 12 months / 1 mile.
+- `expandUntilEnough` gains an `extraPredicate` parameter so the
+  ladder can keep stretching until enough *condition-matched* comps
+  survive — not just enough geo/age-qualifying ones that get
+  filtered out later. `runCompPipeline` passes the condition matcher
+  through, so ARV and As-Is each find the right comps without
+  short-circuiting on the wrong bucket.
+- `CompAggregate` gains `months_back` so analyzeDeal can detect when
+  the as-is path stretched. When the survivors came from
+  > 12 months OR > 1 mile, the engine emits a "Novation comps
+  stretched to N months / X mi due to limited as-is inventory."
+  warning so the user knows the result leaned on an extended window.
+- ARV path is unchanged — still uses the tighter default ladder.
+- 3 new tests cover: no-stretch happy path, stretch-and-warn at
+  24mo / 2mi, fallback to ARV − repairs when no as-is comps exist
+  even in the extended window. 199 tests pass total. Typecheck clean.
+
 Phase 20 (vision-based property-type detection):
 - `analyzeSubjectPhotos` now also returns `property_type` (one of
   the canonical types or null when vision is unsure / only saw

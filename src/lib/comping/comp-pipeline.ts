@@ -30,6 +30,20 @@ const DEFAULT_FILTERS: Omit<FilterOptions, "allowedTypes"> = {
 const RADIUS_LADDER = [0.25, 0.5, 1.0];
 const MONTHS_LADDER = [6, 9, 12];
 
+/**
+ * Extended ladders for novation / as-is comping. Houses sold "as-is" on
+ * the MLS show up less often than renovated solds, so we let the search
+ * stretch farther in both time and distance before giving up. The
+ * orchestrator passes these in via the `ladders` option below.
+ */
+export const RADIUS_LADDER_NOVATION = [0.25, 0.5, 1.0, 2.0];
+export const MONTHS_LADDER_NOVATION = [6, 12, 18, 24];
+
+export interface ExpandLadders {
+  radius?: number[];
+  months?: number[];
+}
+
 export function filterComps(
   subject: SubjectProperty,
   comps: CompRecord[],
@@ -70,29 +84,40 @@ export function expandUntilEnough(
   comps: CompRecord[],
   status: "sold" | "active" = "sold",
   min = 3,
-  allowedTypes?: ReadonlySet<PropertyType>
+  allowedTypes?: ReadonlySet<PropertyType>,
+  ladders: ExpandLadders = {},
+  /** Optional extra predicate (e.g. condition match) applied at each
+      ladder rung so the ladder doesn't short-circuit on comps that
+      survive geo/age but get filtered out later. */
+  extraPredicate?: (c: CompRecord) => boolean
 ): { comps: CompRecord[]; radius: number; months: number } {
   const pool = comps.filter((c) => c.status === status);
+  const radiusLadder = ladders.radius ?? RADIUS_LADDER;
+  const monthsLadder = ladders.months ?? MONTHS_LADDER;
 
-  for (const months of MONTHS_LADDER) {
-    for (const radius of RADIUS_LADDER) {
-      const filtered = filterComps(subject, pool, {
+  for (const months of monthsLadder) {
+    for (const radius of radiusLadder) {
+      let filtered = filterComps(subject, pool, {
         radiusMi: radius,
         monthsBack: months,
         allowedTypes,
       });
+      if (extraPredicate) filtered = filtered.filter(extraPredicate);
       if (filtered.length >= min) {
         return { comps: filtered, radius, months };
       }
     }
   }
   // Last resort — widest filter even if under min.
-  const last = filterComps(subject, pool, {
-    radiusMi: 1.0,
-    monthsBack: 12,
+  const lastRadius = radiusLadder[radiusLadder.length - 1];
+  const lastMonths = monthsLadder[monthsLadder.length - 1];
+  let last = filterComps(subject, pool, {
+    radiusMi: lastRadius,
+    monthsBack: lastMonths,
     allowedTypes,
   });
-  return { comps: last, radius: 1.0, months: 12 };
+  if (extraPredicate) last = last.filter(extraPredicate);
+  return { comps: last, radius: lastRadius, months: lastMonths };
 }
 
 /**
@@ -145,7 +170,11 @@ export function adjustComps(subject: SubjectProperty, comps: CompRecord[]): numb
  * Aggregate adjusted prices into a single value using the trimmed mean and a
  * ±1 stdev range.
  */
-export function aggregate(adjusted: number[], radiusMi: number): CompAggregate | null {
+export function aggregate(
+  adjusted: number[],
+  radiusMi: number,
+  monthsBack: number
+): CompAggregate | null {
   if (adjusted.length === 0) return null;
   const sorted = [...adjusted].sort((a, b) => a - b);
   const trim = sorted.length >= 6 ? 1 : 0;
@@ -165,6 +194,7 @@ export function aggregate(adjusted: number[], radiusMi: number): CompAggregate |
     median_ppsf: Math.round(median),
     iqr_pct: Number(iqrPct.toFixed(3)),
     radius_mi: radiusMi,
+    months_back: monthsBack,
   };
 }
 
@@ -176,10 +206,22 @@ export function runCompPipeline(
   subject: SubjectProperty,
   allComps: CompRecord[],
   target: CompCondition,
-  allowedTypes?: ReadonlySet<PropertyType>
+  allowedTypes?: ReadonlySet<PropertyType>,
+  ladders?: ExpandLadders
 ): CompAggregate | null {
-  const expanded = expandUntilEnough(subject, allComps, "sold", 3, allowedTypes);
-  const targeted = expanded.comps.filter((c) => matchesCondition(c.condition, target));
+  // Pass the condition matcher into the ladder so we keep stretching
+  // until we find enough condition-matched comps — not just enough
+  // geo/age-qualifying ones, which may all be the wrong condition.
+  const expanded = expandUntilEnough(
+    subject,
+    allComps,
+    "sold",
+    3,
+    allowedTypes,
+    ladders,
+    (c) => matchesCondition(c.condition, target)
+  );
+  const targeted = expanded.comps;
   // We deliberately do NOT fall back to non-matching conditions — mixing
   // renovated and as_is comps would distort both ARV and As-Is. The caller
   // (analyzeDeal) handles the null case via ARV − repairs.
@@ -187,7 +229,7 @@ export function runCompPipeline(
   const cleaned = removeOutliers(targeted);
   if (cleaned.length === 0) return null;
   const adjusted = adjustComps(subject, cleaned);
-  return aggregate(adjusted, expanded.radius);
+  return aggregate(adjusted, expanded.radius, expanded.months);
 }
 
 export function scoreConfidence(agg: CompAggregate | null, warnings: string[]): Confidence {

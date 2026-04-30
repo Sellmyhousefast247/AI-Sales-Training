@@ -8,7 +8,13 @@ import {
 } from "./formulas";
 import { compatibleTypes, isStrictPropertyType } from "./property-type";
 import { estimateRepairs } from "./repair-estimator";
-import { runCompPipeline, scoreConfidence } from "./comp-pipeline";
+import {
+  MONTHS_LADDER_NOVATION,
+  RADIUS_LADDER_NOVATION,
+  runCompPipeline,
+  scoreConfidence,
+  type ExpandLadders,
+} from "./comp-pipeline";
 import type {
   AnalyzeDealInput,
   AnalyzeDealOutput,
@@ -80,10 +86,23 @@ export function analyzeDeal(input: AnalyzeDealInput): AnalyzeDealOutput {
   // Property-type aware comping: strict same-type pass first; if too few
   // survive AND the subject type permits a fallback (SF↔townhouse), retry
   // with the compatible types and warn. Strict types (manufactured,
-  // multi_family, land) never fall back — better to surface "no comps"
-  // than to silently mix incompatible markets.
+  // multi_family, land) never fall back.
+  //
+  // ARV (renovated) uses the tighter default ladder (≤12 months, ≤1 mi).
+  // As-Is (novation) uses an extended ladder — as-is sales show up less
+  // often on the MLS, so we let the search stretch up to 24 months and
+  // 2 miles before giving up. Sales > 12 months out / > 1 mi out
+  // generate a "stretched" warning so the user knows.
   const arvAgg = runCompPipelineWithFallback(subject, comps, "renovated", warnings, "ARV");
-  const asIsAgg = runCompPipelineWithFallback(subject, comps, "as_is", warnings, "As-Is");
+  const asIsAgg = runCompPipelineWithFallback(subject, comps, "as_is", warnings, "As-Is", {
+    radius: RADIUS_LADDER_NOVATION,
+    months: MONTHS_LADDER_NOVATION,
+  });
+  if (asIsAgg && (asIsAgg.months_back > 12 || asIsAgg.radius_mi > 1.0)) {
+    warnings.push(
+      `Novation comps stretched to ${asIsAgg.months_back} months / ${asIsAgg.radius_mi} mi due to limited as-is inventory.`
+    );
+  }
 
   // 3. Repairs from condition text.
   const repair = estimateRepairs(subject.sqft, condition_text);
@@ -138,10 +157,11 @@ function runCompPipelineWithFallback(
   comps: CompRecord[],
   target: CompCondition,
   warnings: string[],
-  label: "ARV" | "As-Is"
+  label: "ARV" | "As-Is",
+  ladders?: ExpandLadders
 ) {
   const strictAllowed: ReadonlySet<PropertyType> = new Set([subject.property_type]);
-  const strict = runCompPipeline(subject, comps, target, strictAllowed);
+  const strict = runCompPipeline(subject, comps, target, strictAllowed, ladders);
   if (strict) return strict;
 
   if (isStrictPropertyType(subject.property_type)) {
@@ -158,7 +178,7 @@ function runCompPipelineWithFallback(
   }
 
   const relaxedAllowed: ReadonlySet<PropertyType> = new Set(compatible);
-  const relaxed = runCompPipeline(subject, comps, target, relaxedAllowed);
+  const relaxed = runCompPipeline(subject, comps, target, relaxedAllowed, ladders);
   if (relaxed) {
     const others = compatible
       .filter((t) => t !== subject.property_type)

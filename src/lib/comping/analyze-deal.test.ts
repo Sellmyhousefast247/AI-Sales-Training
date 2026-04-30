@@ -180,3 +180,74 @@ describe("analyzeDeal property-type guarding", () => {
     expect(result.warnings.some((w) => /Insufficient sold comps for ARV/i.test(w))).toBe(true);
   });
 });
+
+describe("analyzeDeal novation extended window", () => {
+  function daysAgo(n: number): string {
+    return new Date(Date.now() - n * 86_400_000).toISOString().slice(0, 10);
+  }
+
+  // Five renovated solds within 12 months / 0.5 mi so ARV always passes.
+  function arvFloor(): CompRecord[] {
+    return [
+      comp({ price: 320_000, condition: "renovated", distance_mi: 0.15, close_date: daysAgo(60) }),
+      comp({ price: 318_000, condition: "renovated", distance_mi: 0.20, close_date: daysAgo(120) }),
+      comp({ price: 322_000, condition: "renovated", distance_mi: 0.30, close_date: daysAgo(180) }),
+      comp({ price: 325_000, condition: "renovated", distance_mi: 0.40, close_date: daysAgo(240) }),
+      comp({ price: 315_000, condition: "renovated", distance_mi: 0.45, close_date: daysAgo(300) }),
+    ];
+  }
+
+  it("does NOT stretch when as-is comps are abundant in the default window", () => {
+    const comps: CompRecord[] = [
+      ...arvFloor(),
+      comp({ price: 240_000, condition: "as_is", distance_mi: 0.18, close_date: daysAgo(60) }),
+      comp({ price: 245_000, condition: "as_is", distance_mi: 0.22, close_date: daysAgo(120) }),
+      comp({ price: 250_000, condition: "as_is", distance_mi: 0.24, close_date: daysAgo(180) }),
+    ];
+    const result = analyzeDeal({
+      subject,
+      condition_text: "",
+      comps,
+      market_signals: {},
+      wholesale_fee: 20_000,
+      novation_fee: 40_000,
+    });
+    expect(result.as_is_value).toBeGreaterThan(0);
+    expect(result.warnings.some((w) => /stretched/i.test(w))).toBe(false);
+  });
+
+  it("stretches up to 24 months / 2 mi for novation when as-is comps are sparse", () => {
+    // No as-is comps inside 1 mi or within 12 months — only old/far ones.
+    const comps: CompRecord[] = [
+      ...arvFloor(),
+      comp({ price: 240_000, condition: "as_is", distance_mi: 1.6, close_date: daysAgo(560) }),
+      comp({ price: 245_000, condition: "as_is", distance_mi: 1.8, close_date: daysAgo(620) }),
+      comp({ price: 250_000, condition: "as_is", distance_mi: 1.9, close_date: daysAgo(680) }),
+    ];
+    const result = analyzeDeal({
+      subject,
+      condition_text: "",
+      comps,
+      market_signals: {},
+      wholesale_fee: 20_000,
+      novation_fee: 40_000,
+    });
+    expect(result.as_is_value).toBeGreaterThan(0);
+    expect(result.warnings.some((w) => /Novation comps stretched/i.test(w))).toBe(true);
+  });
+
+  it("falls back to ARV − repairs when no as-is comps exist even in the extended window", () => {
+    // Plenty of renovated comps for ARV, zero as-is anywhere.
+    const result = analyzeDeal({
+      subject,
+      condition_text: "outdated kitchen",
+      comps: arvFloor(),
+      market_signals: {},
+      wholesale_fee: 20_000,
+      novation_fee: 40_000,
+    });
+    expect(result.arv).toBeGreaterThan(0);
+    expect(result.as_is_value).toBe(Math.max(0, result.arv - result.repair_estimate));
+    expect(result.warnings.some((w) => /Insufficient sold comps for As-Is/i.test(w))).toBe(true);
+  });
+});
