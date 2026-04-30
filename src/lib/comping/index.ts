@@ -24,6 +24,12 @@ export { LotSignalsProvider } from "./providers/lot-signals";
 export { warmZip, warmDueQueue, enqueueZip } from "./warmer";
 export type { WarmContext, WarmResult } from "./warmer";
 export {
+  crossCheckAvms,
+  applyConfidenceDrop,
+  type AvmEstimate,
+  type AvmCrossCheck,
+} from "./avm-cross-check";
+export {
   NON_DISCLOSURE_STATES,
   isNonDisclosureState,
   inferSaleToListRatio,

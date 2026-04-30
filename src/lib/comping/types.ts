@@ -123,4 +123,11 @@ export interface AnalyzeDealOutput {
   confidence_score: Confidence;
   comps_used: number;
   warnings: string[];
+  /**
+   * External AVMs the engine cross-checked against. Populated by the
+   * orchestrator when providers expose `pullAvm`. The renderer treats
+   * a missing/empty array the same as "no cross-check ran".
+   */
+  external_avms?: Array<{ source: string; arv: number }>;
+  avm_max_spread_pct?: number;
 }

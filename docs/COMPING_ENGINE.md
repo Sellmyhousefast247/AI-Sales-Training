@@ -520,6 +520,27 @@ Phase 14 (PDF export + shareable link):
     Reps see Print only.
 - 120 tests still pass; typecheck clean on every new file.
 
+Phase 18 (multi-source AVM cross-check):
+- `src/lib/comping/avm-cross-check.ts` — pure helper that takes our
+  derived ARV and a list of external AVMs (RentCast, ATTOM) and
+  returns max-spread + a 0/1/2-tier confidence drop. Thresholds:
+  ≥15% spread → drop one tier, ≥25% → drop two. Below the threshold
+  the cross-check stays silent.
+- `CompDataProvider` gains an optional `pullAvm(subject)` method.
+  `ProviderRouter.pullAvms` fans out via `Promise.allSettled` so a
+  slow upstream can't tank the rest.
+- `RentCastProvider.pullAvm` hits `/avm/value`, `AttomProvider.pullAvm`
+  hits `/property/avm` and reads `property[0].avm.amount.value`.
+- Orchestrator runs the cross-check after `analyzeDeal`, applies the
+  confidence drop, pushes a warning, and stores the AVMs +
+  max-spread on `AnalyzeDealOutput.external_avms` /
+  `avm_max_spread_pct`. Best-effort — never blocks analysis.
+- Detail page renders an "External AVM cross-check" section showing
+  Engine ARV vs each external AVM with %-deltas; the panel turns
+  emerald / amber / red based on the spread.
+- 10 unit tests cover empty, sub-threshold, 1-tier, 2-tier, ARV=0,
+  and the confidence-drop clamping at "Low".
+
 Phase 17 (analysis history timeline):
 - Detail page loads up to 50 prior analyses for the same `subject_id`
   (newest first) and renders a compact `HistoryTimeline` section below

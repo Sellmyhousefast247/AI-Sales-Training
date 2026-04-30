@@ -7,6 +7,7 @@ import {
   saveMarketSignals,
   upsertSubject,
 } from "./cache";
+import { applyConfidenceDrop, crossCheckAvms } from "./avm-cross-check";
 import { tagCompConditions } from "./condition-classifier";
 import { tagCompsByPhotos } from "./photo-classifier";
 import { analyzeDeal } from "./index";
@@ -179,6 +180,29 @@ export async function fetchAndAnalyze(
     output.warnings.push(
       `Non-disclosure state: ${compsImputed} comp price(s) imputed from list price + DOM.`
     );
+  }
+
+  // 6b. Multi-source AVM cross-check. Big disagreements between our
+  //     derived ARV and external AVMs signal upstream data bugs or an
+  //     unusual subject — drop confidence + emit a warning.
+  if (router) {
+    try {
+      const avms = await router.pullAvms(subject);
+      if (avms.length > 0) {
+        const cc = crossCheckAvms(output.arv, avms);
+        output.external_avms = cc.estimates;
+        output.avm_max_spread_pct = cc.max_spread_pct;
+        if (cc.confidence_drop > 0) {
+          output.confidence_score = applyConfidenceDrop(
+            output.confidence_score,
+            cc.confidence_drop
+          );
+        }
+        if (cc.warning) output.warnings.push(cc.warning);
+      }
+    } catch {
+      // best-effort; never block analysis on AVM cross-check failure
+    }
   }
 
   // 7. Persist analysis.

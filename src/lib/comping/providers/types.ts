@@ -1,3 +1,4 @@
+import type { AvmEstimate } from "../avm-cross-check";
 import type { CompRecord, MarketSignals, SubjectProperty } from "../types";
 
 /**
@@ -21,6 +22,13 @@ export interface CompDataProvider {
    * Providers that don't have this data should return an empty object.
    */
   pullMarketSignals?(subject: SubjectProperty): Promise<MarketSignals>;
+
+  /**
+   * Optional — return the provider's own AVM (automated valuation) estimate
+   * for the subject. Used by the cross-check pass to validate ARV. Return
+   * null when no estimate is available.
+   */
+  pullAvm?(subject: SubjectProperty): Promise<AvmEstimate | null>;
 }
 
 export interface SubjectQuery {
@@ -85,6 +93,19 @@ export class ProviderRouter {
       } catch {
         // ignore
       }
+    }
+    return out;
+  }
+
+  async pullAvms(subject: SubjectProperty): Promise<AvmEstimate[]> {
+    const callable = this.providers.filter((p) => typeof p.pullAvm === "function");
+    if (callable.length === 0) return [];
+    const settled = await Promise.allSettled(
+      callable.map((p) => p.pullAvm!(subject))
+    );
+    const out: AvmEstimate[] = [];
+    for (const r of settled) {
+      if (r.status === "fulfilled" && r.value && r.value.arv > 0) out.push(r.value);
     }
     return out;
   }

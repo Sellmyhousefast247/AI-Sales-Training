@@ -86,6 +86,15 @@ export class RentCastProvider implements CompDataProvider {
     return out;
   }
 
+  async pullAvm(subject: SubjectProperty): Promise<{ source: string; arv: number } | null> {
+    if (!subject.address) return null;
+    const url = `${this.base}/avm/value?address=${encodeURIComponent(subject.address)}`;
+    const json = await this.get(url).catch(() => null);
+    const v = num((json as any)?.price ?? (json as any)?.value);
+    if (v == null || v <= 0) return null;
+    return { source: "rentcast", arv: v };
+  }
+
   async pullMarketSignals(subject: SubjectProperty): Promise<MarketSignals> {
     if (!subject.zip) return {};
     const url =

@@ -74,6 +74,11 @@ export default async function AnalysisDetailPage({ params }: { params: Promise<{
   const subj = row.comp_subjects;
   const breakdown = row.payload?.repair_breakdown;
   const warnings = Array.isArray(row.warnings) ? (row.warnings as string[]) : [];
+  const avms = Array.isArray(row.payload?.external_avms) ? row.payload.external_avms : [];
+  const avmSpread =
+    typeof row.payload?.avm_max_spread_pct === "number"
+      ? row.payload.avm_max_spread_pct
+      : null;
 
   // Pull all comps for the subject (including excluded) so the editor can
   // surface them. RLS on comp_records keeps this tenant-scoped.
@@ -226,6 +231,8 @@ export default async function AnalysisDetailPage({ params }: { params: Promise<{
           </ul>
         </section>
       ) : null}
+
+      {avms.length > 0 ? <AvmCrossCheckSection arv={row.arv} avms={avms} spread={avmSpread} /> : null}
 
       {/* Subject details — prefer the immutable snapshot when present so
           historical analyses stay accurate after the live subject is
@@ -578,6 +585,58 @@ function SnapshotConditionBadge({
     <span title={meta.title} className={`rounded px-1.5 py-0.5 text-[10px] font-medium ${meta.cls}`}>
       {meta.label}
     </span>
+  );
+}
+
+function AvmCrossCheckSection({
+  arv,
+  avms,
+  spread,
+}: {
+  arv: number;
+  avms: Array<{ source: string; arv: number }>;
+  spread: number | null;
+}) {
+  const spreadPct = spread != null ? Math.round(spread * 100) : null;
+  const tone =
+    spread == null
+      ? "border-ink-200 bg-white"
+      : spread >= 0.25
+        ? "border-red-300 bg-red-50"
+        : spread >= 0.15
+          ? "border-amber-300 bg-amber-50"
+          : "border-emerald-300 bg-emerald-50";
+  return (
+    <section className={`rounded-lg border ${tone} p-5`}>
+      <header className="flex items-baseline justify-between">
+        <h2 className="text-sm font-semibold">External AVM cross-check</h2>
+        {spreadPct != null ? (
+          <span className="text-xs text-ink-700">Max spread {spreadPct}%</span>
+        ) : null}
+      </header>
+      <ul className="mt-3 space-y-1 text-sm">
+        <li className="flex items-center justify-between">
+          <span className="font-medium">Engine ARV</span>
+          <span className="font-semibold">{formatMoney(arv)}</span>
+        </li>
+        {avms.map((a) => {
+          const delta = arv > 0 ? (a.arv - arv) / arv : 0;
+          const sign = delta > 0 ? "+" : "";
+          return (
+            <li key={a.source} className="flex items-center justify-between">
+              <span className="capitalize text-ink-700">{a.source}</span>
+              <span>
+                {formatMoney(a.arv)}
+                <span className="ml-2 text-xs text-ink-500">
+                  ({sign}
+                  {(delta * 100).toFixed(1)}%)
+                </span>
+              </span>
+            </li>
+          );
+        })}
+      </ul>
+    </section>
   );
 }
 

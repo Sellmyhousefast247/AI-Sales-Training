@@ -101,6 +101,24 @@ export class AttomProvider implements CompDataProvider {
     return out;
   }
 
+  async pullAvm(subject: SubjectProperty): Promise<{ source: string; arv: number } | null> {
+    const { address1, address2 } = splitAddress({
+      address: subject.address,
+      city: subject.city,
+      state: subject.state,
+      zip: subject.zip,
+    });
+    if (!address1 || !address2) return null;
+    const url =
+      `${this.base}/property/avm?address1=${encodeURIComponent(address1)}` +
+      `&address2=${encodeURIComponent(address2)}`;
+    const json = await this.get(url).catch(() => null);
+    const property = pickFirst<any>((json as any)?.property);
+    const v = num(property?.avm?.amount?.value);
+    if (v == null || v <= 0) return null;
+    return { source: "attom", arv: v };
+  }
+
   private async get(url: string): Promise<any> {
     const res = await this.fetchImpl(url, {
       headers: { apikey: this.config.apiKey, accept: "application/json" },
