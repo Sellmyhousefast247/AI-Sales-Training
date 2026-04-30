@@ -6,9 +6,17 @@ import {
   novationMAO,
   wholesaleMAO,
 } from "./formulas";
+import { compatibleTypes, isStrictPropertyType } from "./property-type";
 import { estimateRepairs } from "./repair-estimator";
 import { runCompPipeline, scoreConfidence } from "./comp-pipeline";
-import type { AnalyzeDealInput, AnalyzeDealOutput } from "./types";
+import type {
+  AnalyzeDealInput,
+  AnalyzeDealOutput,
+  CompCondition,
+  CompRecord,
+  PropertyType,
+  SubjectProperty,
+} from "./types";
 
 export * from "./types";
 export * from "./formulas";
@@ -54,6 +62,12 @@ export {
   type CompSnapshot,
   type SubjectSnapshot,
 } from "./snapshot";
+export {
+  detectPropertyType,
+  detectPropertyTypeOrDefault,
+  isStrictPropertyType,
+  compatibleTypes,
+} from "./property-type";
 
 /**
  * End-to-end deal analysis: ARV + As-Is + Repairs + MAOs + confidence.
@@ -63,13 +77,13 @@ export function analyzeDeal(input: AnalyzeDealInput): AnalyzeDealOutput {
   const { subject, condition_text, comps, market_signals, wholesale_fee, novation_fee } = input;
   const warnings: string[] = [];
 
-  // 1. ARV — comp solds in renovated condition.
-  const arvAgg = runCompPipeline(subject, comps, "renovated");
-  if (!arvAgg) warnings.push("Insufficient sold comps for ARV.");
-
-  // 2. As-Is — comp solds in as_is/average condition.
-  const asIsAgg = runCompPipeline(subject, comps, "as_is");
-  if (!asIsAgg) warnings.push("Insufficient sold comps for As-Is value.");
+  // Property-type aware comping: strict same-type pass first; if too few
+  // survive AND the subject type permits a fallback (SF↔townhouse), retry
+  // with the compatible types and warn. Strict types (manufactured,
+  // multi_family, land) never fall back — better to surface "no comps"
+  // than to silently mix incompatible markets.
+  const arvAgg = runCompPipelineWithFallback(subject, comps, "renovated", warnings, "ARV");
+  const asIsAgg = runCompPipelineWithFallback(subject, comps, "as_is", warnings, "As-Is");
 
   // 3. Repairs from condition text.
   const repair = estimateRepairs(subject.sqft, condition_text);
@@ -110,4 +124,55 @@ export function analyzeDeal(input: AnalyzeDealInput): AnalyzeDealOutput {
     comps_used: arvAgg?.comps_used ?? 0,
     warnings,
   };
+}
+
+/**
+ * Strict same-type pipeline first. If it returns null AND the subject
+ * type is non-strict (SF / townhouse / condo), retry with compatible
+ * types (SF↔townhouse — condo stays alone). Strict types
+ * (manufactured / multi_family / land) skip the fallback entirely so
+ * we never silently mix incompatible markets.
+ */
+function runCompPipelineWithFallback(
+  subject: SubjectProperty,
+  comps: CompRecord[],
+  target: CompCondition,
+  warnings: string[],
+  label: "ARV" | "As-Is"
+) {
+  const strictAllowed: ReadonlySet<PropertyType> = new Set([subject.property_type]);
+  const strict = runCompPipeline(subject, comps, target, strictAllowed);
+  if (strict) return strict;
+
+  if (isStrictPropertyType(subject.property_type)) {
+    warnings.push(
+      `Insufficient sold comps for ${label}. ${prettyType(subject.property_type)} comps are valued differently from other property types — falling back is disabled.`
+    );
+    return null;
+  }
+
+  const compatible = compatibleTypes(subject.property_type);
+  if (compatible.length <= 1) {
+    warnings.push(`Insufficient sold comps for ${label}.`);
+    return null;
+  }
+
+  const relaxedAllowed: ReadonlySet<PropertyType> = new Set(compatible);
+  const relaxed = runCompPipeline(subject, comps, target, relaxedAllowed);
+  if (relaxed) {
+    const others = compatible
+      .filter((t) => t !== subject.property_type)
+      .map(prettyType)
+      .join(", ");
+    warnings.push(
+      `${label} fell back to compatible property types (${others}) — too few same-type comps available.`
+    );
+    return relaxed;
+  }
+  warnings.push(`Insufficient sold comps for ${label}.`);
+  return null;
+}
+
+function prettyType(t: PropertyType): string {
+  return t.replace(/_/g, " ");
 }

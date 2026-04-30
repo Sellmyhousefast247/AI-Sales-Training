@@ -3,6 +3,7 @@ import type {
   CompCondition,
   CompRecord,
   Confidence,
+  PropertyType,
   SubjectProperty,
 } from "./types";
 
@@ -13,9 +14,11 @@ interface FilterOptions {
   sqftPct: number;
   yearTolerance: number;
   monthsBack: number;
+  /** Property types accepted by the filter. Defaults to {subject.property_type}. */
+  allowedTypes: ReadonlySet<PropertyType>;
 }
 
-const DEFAULT_FILTERS: FilterOptions = {
+const DEFAULT_FILTERS: Omit<FilterOptions, "allowedTypes"> = {
   radiusMi: 0.25,
   bedsTolerance: 1,
   bathsTolerance: 1,
@@ -33,11 +36,13 @@ export function filterComps(
   opts: Partial<FilterOptions> = {}
 ): CompRecord[] {
   const o = { ...DEFAULT_FILTERS, ...opts };
+  const allowedTypes =
+    opts.allowedTypes ?? new Set<PropertyType>([subject.property_type]);
   const cutoff = monthsAgo(o.monthsBack);
 
   return comps.filter((c) => {
     if (c.is_distressed) return false;
-    if (c.property_type !== subject.property_type) return false;
+    if (!allowedTypes.has(c.property_type)) return false;
     if (c.distance_mi > o.radiusMi) return false;
     if (Math.abs(c.beds - subject.beds) > o.bedsTolerance) return false;
     if (Math.abs(c.baths - subject.baths) > o.bathsTolerance) return false;
@@ -64,20 +69,29 @@ export function expandUntilEnough(
   subject: SubjectProperty,
   comps: CompRecord[],
   status: "sold" | "active" = "sold",
-  min = 3
+  min = 3,
+  allowedTypes?: ReadonlySet<PropertyType>
 ): { comps: CompRecord[]; radius: number; months: number } {
   const pool = comps.filter((c) => c.status === status);
 
   for (const months of MONTHS_LADDER) {
     for (const radius of RADIUS_LADDER) {
-      const filtered = filterComps(subject, pool, { radiusMi: radius, monthsBack: months });
+      const filtered = filterComps(subject, pool, {
+        radiusMi: radius,
+        monthsBack: months,
+        allowedTypes,
+      });
       if (filtered.length >= min) {
         return { comps: filtered, radius, months };
       }
     }
   }
   // Last resort — widest filter even if under min.
-  const last = filterComps(subject, pool, { radiusMi: 1.0, monthsBack: 12 });
+  const last = filterComps(subject, pool, {
+    radiusMi: 1.0,
+    monthsBack: 12,
+    allowedTypes,
+  });
   return { comps: last, radius: 1.0, months: 12 };
 }
 
@@ -161,9 +175,10 @@ export function aggregate(adjusted: number[], radiusMi: number): CompAggregate |
 export function runCompPipeline(
   subject: SubjectProperty,
   allComps: CompRecord[],
-  target: CompCondition
+  target: CompCondition,
+  allowedTypes?: ReadonlySet<PropertyType>
 ): CompAggregate | null {
-  const expanded = expandUntilEnough(subject, allComps, "sold", 3);
+  const expanded = expandUntilEnough(subject, allComps, "sold", 3, allowedTypes);
   const targeted = expanded.comps.filter((c) => matchesCondition(c.condition, target));
   // We deliberately do NOT fall back to non-matching conditions — mixing
   // renovated and as_is comps would distort both ARV and As-Is. The caller

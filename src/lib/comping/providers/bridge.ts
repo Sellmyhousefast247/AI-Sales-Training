@@ -4,6 +4,7 @@ import type {
   PropertyType,
   SubjectProperty,
 } from "../types";
+import { detectPropertyTypeOrDefault } from "../property-type";
 import type {
   CompDataProvider,
   PullCompsOptions,
@@ -279,15 +280,7 @@ function mapStatus(s: unknown): CompStatus | null {
 }
 
 function mapPropertyType(type: unknown, subType: unknown): PropertyType {
-  const blob = `${String(type ?? "")} ${String(subType ?? "")}`.toLowerCase();
-  if (blob.includes("condo")) return "condo";
-  if (blob.includes("town")) return "townhouse";
-  if (blob.includes("multi") || blob.includes("duplex") || blob.includes("triplex")) {
-    return "multi_family";
-  }
-  if (blob.includes("manufactured") || blob.includes("mobile")) return "manufactured";
-  if (blob.includes("land") || blob.includes("vacant")) return "land";
-  return "single_family";
+  return detectPropertyTypeOrDefault(`${String(type ?? "")} ${String(subType ?? "")}`);
 }
 
 function isDistressed(raw: unknown): boolean {

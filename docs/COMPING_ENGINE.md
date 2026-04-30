@@ -520,6 +520,32 @@ Phase 14 (PDF export + shareable link):
     Reps see Print only.
 - 120 tests still pass; typecheck clean on every new file.
 
+Phase 19 (property-type-aware comping):
+- `src/lib/comping/property-type.ts` — single source of truth for type
+  detection. `detectPropertyType(blob)` runs an ordered regex set
+  against any free-text source (provider type + subtype, MLS remarks,
+  ATTOM propclass) and returns `single_family | townhouse | condo |
+  multi_family | manufactured | land` or null. Order is most-specific
+  first so "Single Family Manufactured" classifies as manufactured,
+  not single-family.
+- All four providers (Bridge, ATTOM, RentCast — and any future
+  source) now route through `detectPropertyTypeOrDefault`, replacing
+  three drifting inline classifiers.
+- Pipeline gains an `allowedTypes` filter parameter. `analyzeDeal`
+  runs strict same-type first; if the subject is non-strict
+  (single_family or townhouse), it retries with `compatibleTypes()`
+  (SF↔townhouse only) and pushes a warning when the relaxed pass
+  produced the result. Strict types (manufactured, multi_family,
+  land) NEVER fall back — better to surface "no comps" than mix
+  fundamentally different markets.
+- Condo is non-strict for type purposes but `compatibleTypes("condo")`
+  is just ["condo"] because HOA dynamics distort pure $/sqft, so
+  condos still effectively don't fall back.
+- 32 unit tests for the detector + 5 end-to-end pipeline tests
+  covering: manufactured doesn't comp to SF, multi-family doesn't
+  comp to SF, SF falls back to townhouse with a warning, no warning
+  when same-type comps exist, condo stays strict.
+
 Phase 18 (multi-source AVM cross-check):
 - `src/lib/comping/avm-cross-check.ts` — pure helper that takes our
   derived ARV and a list of external AVMs (RentCast, ATTOM) and

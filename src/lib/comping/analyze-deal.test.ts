@@ -97,3 +97,86 @@ describe("analyzeDeal end-to-end", () => {
     expect(result.repair_breakdown.level).toBe("Light");
   });
 });
+
+describe("analyzeDeal property-type guarding", () => {
+  function makeRenovatedSet(propertyType: CompRecord["property_type"]): CompRecord[] {
+    // 5 close, similar comps in the given property type so the
+    // pipeline has enough surviving comps to produce an ARV.
+    return [
+      comp({ price: 320_000, condition: "renovated", distance_mi: 0.12, property_type: propertyType }),
+      comp({ price: 318_000, condition: "renovated", distance_mi: 0.16, property_type: propertyType }),
+      comp({ price: 315_000, condition: "renovated", distance_mi: 0.21, property_type: propertyType }),
+      comp({ price: 322_000, condition: "renovated", distance_mi: 0.24, property_type: propertyType }),
+      comp({ price: 319_000, condition: "renovated", distance_mi: 0.18, property_type: propertyType }),
+    ];
+  }
+
+  it("does NOT comp a manufactured subject against single-family solds", () => {
+    const mfgSubject: SubjectProperty = { ...subject, property_type: "manufactured" };
+    const result = analyzeDeal({
+      subject: mfgSubject,
+      condition_text: "",
+      comps: makeRenovatedSet("single_family"),
+      market_signals: {},
+      wholesale_fee: 20_000,
+      novation_fee: 40_000,
+    });
+    expect(result.arv).toBe(0);
+    expect(result.warnings.some((w) => /manufactured/i.test(w))).toBe(true);
+    expect(result.warnings.some((w) => /falling back is disabled/i.test(w))).toBe(true);
+  });
+
+  it("does NOT comp a multi-family subject against single-family solds", () => {
+    const mf: SubjectProperty = { ...subject, property_type: "multi_family" };
+    const result = analyzeDeal({
+      subject: mf,
+      condition_text: "",
+      comps: makeRenovatedSet("single_family"),
+      market_signals: {},
+      wholesale_fee: 20_000,
+      novation_fee: 40_000,
+    });
+    expect(result.arv).toBe(0);
+    expect(result.warnings.some((w) => /multi family/i.test(w))).toBe(true);
+  });
+
+  it("falls back from single_family to townhouse comps and warns about it", () => {
+    const result = analyzeDeal({
+      subject,
+      condition_text: "",
+      comps: makeRenovatedSet("townhouse"),
+      market_signals: {},
+      wholesale_fee: 20_000,
+      novation_fee: 40_000,
+    });
+    expect(result.arv).toBeGreaterThan(0);
+    expect(result.warnings.some((w) => /fell back to compatible/i.test(w))).toBe(true);
+  });
+
+  it("does not warn when same-type comps are sufficient", () => {
+    const result = analyzeDeal({
+      subject,
+      condition_text: "",
+      comps: makeRenovatedSet("single_family"),
+      market_signals: {},
+      wholesale_fee: 20_000,
+      novation_fee: 40_000,
+    });
+    expect(result.arv).toBeGreaterThan(0);
+    expect(result.warnings.some((w) => /fell back/i.test(w))).toBe(false);
+  });
+
+  it("keeps condo strict — does not fall back to single_family", () => {
+    const cd: SubjectProperty = { ...subject, property_type: "condo" };
+    const result = analyzeDeal({
+      subject: cd,
+      condition_text: "",
+      comps: makeRenovatedSet("single_family"),
+      market_signals: {},
+      wholesale_fee: 20_000,
+      novation_fee: 40_000,
+    });
+    expect(result.arv).toBe(0);
+    expect(result.warnings.some((w) => /Insufficient sold comps for ARV/i.test(w))).toBe(true);
+  });
+});

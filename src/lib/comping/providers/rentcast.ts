@@ -4,6 +4,7 @@ import type {
   PropertyType,
   SubjectProperty,
 } from "../types";
+import { detectPropertyTypeOrDefault } from "../property-type";
 import type {
   CompDataProvider,
   PullCompsOptions,
@@ -221,14 +222,7 @@ function mapListingStatus(s: unknown): "active" | "pending" {
 }
 
 function mapPropertyType(raw: unknown): PropertyType {
-  const s = String(raw ?? "").toLowerCase();
-  if (s.includes("condo")) return "condo";
-  if (s.includes("town")) return "townhouse";
-  if (s.includes("multi") || s.includes("duplex") || s.includes("triplex"))
-    return "multi_family";
-  if (s.includes("manufactured") || s.includes("mobile")) return "manufactured";
-  if (s.includes("land") || s.includes("vacant")) return "land";
-  return "single_family";
+  return detectPropertyTypeOrDefault(raw);
 }
 
 function distanceFromLatLng(
