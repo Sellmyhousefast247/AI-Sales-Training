@@ -1,6 +1,6 @@
 "use client";
 
-import { useState } from "react";
+import { useEffect, useState } from "react";
 import { useRouter } from "next/navigation";
 
 interface ManualComp {
@@ -22,6 +22,7 @@ const PROPERTY_TYPES = [
   { v: "condo", l: "Condo" },
   { v: "multi_family", l: "Multi-family" },
   { v: "manufactured", l: "Manufactured" },
+  { v: "land", l: "Land" },
 ] as const;
 
 function labelFor(v: typeof PROPERTY_TYPES[number]["v"]): string {
@@ -45,6 +46,23 @@ export function CompCalculatorForm() {
   const [lotSqft, setLotSqft] = useState("");
   const [propertyType, setPropertyType] = useState<typeof PROPERTY_TYPES[number]["v"]>("single_family");
   const [garageStalls, setGarageStalls] = useState("");
+
+  const isLand = propertyType === "land";
+
+  // For land, beds/baths/living-sqft/etc don't apply. Push sentinel
+  // values so the schema (sqft must be positive) and pipeline (beds±1
+  // filter) still work, then hide those inputs from the user. The
+  // engine compares land comps strictly so the sentinels never bleed
+  // into stick-built comp pools.
+  useEffect(() => {
+    if (isLand) {
+      setBeds("0");
+      setBaths("0");
+      setSqft("1");
+      setYearBuilt("");
+      setGarageStalls("");
+    }
+  }, [isLand]);
 
   const [conditionText, setConditionText] = useState("");
   const [wholesaleFee, setWholesaleFee] = useState("20000");
@@ -304,52 +322,78 @@ export function CompCalculatorForm() {
       </Section>
 
       {/* Subject specs */}
-      <Section title="Subject specs" hint="Tell us about the house.">
+      <Section
+        title="Subject specs"
+        hint={
+          isLand
+            ? "For vacant land, only the lot size matters."
+            : "Tell us about the house."
+        }
+      >
         <div className="grid grid-cols-2 gap-4 md:grid-cols-4">
-          <Field label="Beds">
-            <input type="number" min={0} value={beds} onChange={(e) => setBeds(e.target.value)} className={inputCls} />
-          </Field>
-          <Field label="Baths">
-            <input
-              type="number"
-              min={0}
-              step={0.5}
-              value={baths}
-              onChange={(e) => setBaths(e.target.value)}
-              className={inputCls}
-            />
-          </Field>
-          <Field label="Living sqft">
-            <input type="number" min={0} value={sqft} onChange={(e) => setSqft(e.target.value)} className={inputCls} />
-          </Field>
-          <Field label="Year built">
-            <input
-              type="number"
-              min={1800}
-              max={2100}
-              value={yearBuilt}
-              onChange={(e) => setYearBuilt(e.target.value)}
-              className={inputCls}
-            />
-          </Field>
-          <Field label="Lot sqft">
+          {!isLand && (
+            <>
+              <Field label="Beds">
+                <input
+                  type="number"
+                  min={0}
+                  value={beds}
+                  onChange={(e) => setBeds(e.target.value)}
+                  className={inputCls}
+                />
+              </Field>
+              <Field label="Baths">
+                <input
+                  type="number"
+                  min={0}
+                  step={0.5}
+                  value={baths}
+                  onChange={(e) => setBaths(e.target.value)}
+                  className={inputCls}
+                />
+              </Field>
+              <Field label="Living sqft">
+                <input
+                  type="number"
+                  min={0}
+                  value={sqft}
+                  onChange={(e) => setSqft(e.target.value)}
+                  className={inputCls}
+                />
+              </Field>
+              <Field label="Year built">
+                <input
+                  type="number"
+                  min={1800}
+                  max={2100}
+                  value={yearBuilt}
+                  onChange={(e) => setYearBuilt(e.target.value)}
+                  className={inputCls}
+                />
+              </Field>
+            </>
+          )}
+          <Field label={isLand ? "Lot sqft" : "Lot sqft"} required={isLand}>
             <input
               type="number"
               min={0}
               value={lotSqft}
               onChange={(e) => setLotSqft(e.target.value)}
               className={inputCls}
+              required={isLand}
             />
           </Field>
-          <Field label="Garage stalls">
-            <input
-              type="number"
-              min={0}
-              value={garageStalls}
-              onChange={(e) => setGarageStalls(e.target.value)}
-              className={inputCls}
-            />
-          </Field>
+          {!isLand && (
+            <Field label="Garage stalls">
+              <input
+                type="number"
+                min={0}
+                value={garageStalls}
+                onChange={(e) => setGarageStalls(e.target.value)}
+                className={inputCls}
+              />
+            </Field>
+          )}
           <Field label="Property type">
             <select
               value={propertyType}
@@ -437,16 +481,21 @@ export function CompCalculatorForm() {
         ) : null}
       </Section>
 
-      {/* Condition */}
-      <Section title="Condition notes" hint="Describe what needs to be fixed. Be specific — we use this to size repairs.">
-        <textarea
-          value={conditionText}
-          onChange={(e) => setConditionText(e.target.value)}
-          rows={4}
-          placeholder="e.g. Roof damage, outdated kitchen, foundation cracks, full rehab needed."
-          className={`${inputCls} font-mono text-sm`}
-        />
-      </Section>
+      {/* Condition — irrelevant for vacant land. */}
+      {!isLand && (
+        <Section
+          title="Condition notes"
+          hint="Describe what needs to be fixed. Be specific — we use this to size repairs."
+        >
+          <textarea
+            value={conditionText}
+            onChange={(e) => setConditionText(e.target.value)}
+            rows={4}
+            placeholder="e.g. Roof damage, outdated kitchen, foundation cracks, full rehab needed."
+            className={`${inputCls} font-mono text-sm`}
+          />
+        </Section>
+      )}
 
       {/* Comps */}
       <Section
