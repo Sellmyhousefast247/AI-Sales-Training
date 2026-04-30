@@ -251,3 +251,39 @@ describe("analyzeDeal novation extended window", () => {
     expect(result.warnings.some((w) => /Insufficient sold comps for As-Is/i.test(w))).toBe(true);
   });
 });
+
+describe("analyzeDeal repair-tier override", () => {
+  it("uses the override tier and warns when notes disagree", () => {
+    const result = analyzeDeal({
+      subject,
+      condition_text: "paint and carpet only",
+      comps: [],
+      market_signals: {},
+      wholesale_fee: 20_000,
+      novation_fee: 40_000,
+      repair_level: "Heavy",
+    });
+    // Heavy tier × 1500 sqft → 35-55 $/sqft → ~67.5k
+    expect(result.repair_breakdown.level).toBe("Heavy");
+    expect(result.repair_estimate).toBeGreaterThan(50_000);
+    expect(
+      result.warnings.some((w) => /Repair tier override/i.test(w))
+    ).toBe(true);
+  });
+
+  it("does not warn when override matches the auto-detected tier", () => {
+    const result = analyzeDeal({
+      subject,
+      condition_text: "needs new roof, full kitchen, full bath",
+      comps: [],
+      market_signals: {},
+      wholesale_fee: 20_000,
+      novation_fee: 40_000,
+      repair_level: "Heavy",
+    });
+    expect(result.repair_breakdown.level).toBe("Heavy");
+    expect(
+      result.warnings.some((w) => /Repair tier override/i.test(w))
+    ).toBe(false);
+  });
+});

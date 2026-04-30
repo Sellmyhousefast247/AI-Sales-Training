@@ -76,6 +76,9 @@ export const marketSignalsSchema = z.object({
 });
 export type MarketSignals = z.infer<typeof marketSignalsSchema>;
 
+export const repairLevelSchema = z.enum(["Light", "Moderate", "Heavy", "Full Gut"]);
+export type RepairLevel = z.infer<typeof repairLevelSchema>;
+
 export const analyzeDealInputSchema = z.object({
   subject: subjectPropertySchema,
   condition_text: z.string().default(""),
@@ -83,11 +86,12 @@ export const analyzeDealInputSchema = z.object({
   market_signals: marketSignalsSchema.default({}),
   wholesale_fee: z.number().nonnegative().default(20_000),
   novation_fee: z.number().nonnegative().default(40_000),
+  /** Manual override for the repair tier. When set, the engine uses
+      this instead of detecting from condition_text and emits a warning
+      if the two disagree. */
+  repair_level: repairLevelSchema.optional(),
 });
 export type AnalyzeDealInput = z.infer<typeof analyzeDealInputSchema>;
-
-export const repairLevelSchema = z.enum(["Light", "Moderate", "Heavy", "Full Gut"]);
-export type RepairLevel = z.infer<typeof repairLevelSchema>;
 
 export const confidenceSchema = z.enum(["Low", "Medium", "High"]);
 export type Confidence = z.infer<typeof confidenceSchema>;
@@ -99,6 +103,12 @@ export interface RepairEstimate {
   point: number;
   drivers: string[];
   cost_per_sqft: { low: number; high: number };
+  /** What the keyword detector inferred from the notes. Set even when
+      the user supplied an override so the renderer can show a mismatch. */
+  auto_level?: RepairLevel;
+  /** True when the level used differs from auto_level because the
+      caller passed an explicit override. */
+  override_used?: boolean;
 }
 
 export interface CompAggregate {

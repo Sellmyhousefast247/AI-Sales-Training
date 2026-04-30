@@ -80,7 +80,15 @@ export {
  * Pure function — provider fetching is a separate concern.
  */
 export function analyzeDeal(input: AnalyzeDealInput): AnalyzeDealOutput {
-  const { subject, condition_text, comps, market_signals, wholesale_fee, novation_fee } = input;
+  const {
+    subject,
+    condition_text,
+    comps,
+    market_signals,
+    wholesale_fee,
+    novation_fee,
+    repair_level,
+  } = input;
   const warnings: string[] = [];
 
   // Property-type aware comping: strict same-type pass first; if too few
@@ -105,7 +113,12 @@ export function analyzeDeal(input: AnalyzeDealInput): AnalyzeDealOutput {
   }
 
   // 3. Repairs from condition text.
-  const repair = estimateRepairs(subject.sqft, condition_text);
+  const repair = estimateRepairs(subject.sqft, condition_text, repair_level);
+  if (repair.override_used && repair.auto_level && repair.auto_level !== repair.level) {
+    warnings.push(
+      `Repair tier override: notes look like ${repair.auto_level} but ${repair.level} was selected.`
+    );
+  }
 
   // 4. Buying % from pending ratio of supplied actives/pendings.
   const actives = comps.filter((c) => c.status === "active").length;

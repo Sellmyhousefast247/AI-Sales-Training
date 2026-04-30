@@ -1,7 +1,9 @@
 "use client";
 
-import { useEffect, useState } from "react";
+import { useEffect, useMemo, useState } from "react";
 import { useRouter } from "next/navigation";
+import { detectRepairLevel } from "@/lib/comping";
+import type { RepairLevel } from "@/lib/comping";
 
 interface ManualComp {
   status: "sold" | "active" | "pending";
@@ -65,6 +67,13 @@ export function CompCalculatorForm() {
   }, [isLand]);
 
   const [conditionText, setConditionText] = useState("");
+  // "auto" = let the engine decide from notes. Anything else is a manual override.
+  const [repairTier, setRepairTier] = useState<"auto" | RepairLevel>("auto");
+  const autoTier = useMemo(() => detectRepairLevel(conditionText), [conditionText]);
+  const tierMismatch =
+    repairTier !== "auto" && !autoTier.empty && repairTier !== autoTier.level
+      ? autoTier.level
+      : null;
   const [wholesaleFee, setWholesaleFee] = useState("20000");
   const [novationFee, setNovationFee] = useState("40000");
 
@@ -266,6 +275,7 @@ export function CompCalculatorForm() {
         state: stateAbbr.trim().toUpperCase() || undefined,
         zip: zip.trim() || undefined,
         condition_text: conditionText,
+        repair_level: repairTier === "auto" ? undefined : repairTier,
         wholesale_fee: Number(wholesaleFee),
         novation_fee: Number(novationFee),
         subject_override: subjectOverride,
@@ -494,6 +504,34 @@ export function CompCalculatorForm() {
             placeholder="e.g. Roof damage, outdated kitchen, foundation cracks, full rehab needed."
             className={`${inputCls} font-mono text-sm`}
           />
+
+          <div className="mt-3 flex flex-wrap items-center gap-3">
+            <label className="text-xs font-medium text-ink-700">Repair tier</label>
+            <select
+              value={repairTier}
+              onChange={(e) => setRepairTier(e.target.value as typeof repairTier)}
+              className="rounded-md border border-ink-300 bg-white px-2 py-1 text-sm focus:border-ink-500 focus:outline-none focus:ring-1 focus:ring-ink-500"
+            >
+              <option value="auto">
+                Auto from notes{conditionText ? ` (${autoTier.level})` : ""}
+              </option>
+              <option value="Light">Light · $10–20/sqft</option>
+              <option value="Moderate">Moderate · $20–35/sqft</option>
+              <option value="Heavy">Heavy · $35–55/sqft</option>
+              <option value="Full Gut">Full Gut · $55–85/sqft</option>
+            </select>
+            <span className="text-xs text-ink-500">
+              Auto reads your notes. Override only if you know better than the keywords.
+            </span>
+          </div>
+
+          {tierMismatch ? (
+            <div className="mt-2 rounded border border-amber-300 bg-amber-50 px-3 py-2 text-xs text-amber-900">
+              Heads up — your notes look like <strong>{tierMismatch}</strong> but you picked{" "}
+              <strong>{repairTier}</strong>. The engine will use your pick and add a warning to
+              the analysis. Switch to "Auto from notes" to let it decide.
+            </div>
+          ) : null}
         </Section>
       )}
 

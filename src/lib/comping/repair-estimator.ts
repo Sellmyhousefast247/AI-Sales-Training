@@ -66,7 +66,18 @@ const LEVEL_RANK: Record<RepairLevel, number> = {
 
 const RANK_LEVEL: RepairLevel[] = ["Light", "Moderate", "Heavy", "Full Gut"];
 
-export function estimateRepairs(sqft: number, conditionText: string): RepairEstimate {
+export interface DetectedRepairLevel {
+  level: RepairLevel;
+  drivers: string[];
+  /** True when the text had no matching keywords at all. */
+  empty: boolean;
+}
+
+/**
+ * Pure keyword-driven detector. Same logic the form uses live to warn
+ * the user when their manually-picked tier disagrees with their notes.
+ */
+export function detectRepairLevel(conditionText: string): DetectedRepairLevel {
   const text = conditionText.toLowerCase();
   const drivers: string[] = [];
 
@@ -81,7 +92,6 @@ export function estimateRepairs(sqft: number, conditionText: string): RepairEsti
         drivers.push(kw);
       }
     }
-    // Heavier levels need fewer hits to win — weight by rank.
     const weighted = score * (1 + LEVEL_RANK[spec.level] * 0.25);
     if (weighted > bestScore) {
       bestScore = weighted;
@@ -89,10 +99,8 @@ export function estimateRepairs(sqft: number, conditionText: string): RepairEsti
     }
   }
 
-  // No keywords matched → assume Light. Empty text → minimum estimate.
-  if (bestScore === 0 && text.trim().length > 0) {
-    bestLevel = "Light";
-  }
+  const empty = bestScore === 0;
+  if (empty && text.trim().length > 0) bestLevel = "Light";
 
   for (const override of HARD_OVERRIDES) {
     if (text.includes(override.match) && LEVEL_RANK[override.minLevel] > LEVEL_RANK[bestLevel]) {
@@ -100,28 +108,43 @@ export function estimateRepairs(sqft: number, conditionText: string): RepairEsti
     }
   }
 
-  // If multiple major systems are flagged, escalate.
   const majorSystems = ["roof", "hvac", "kitchen", "bath", "electrical", "plumbing"];
   const flagged = majorSystems.filter((s) => text.includes(s)).length;
-  if (flagged >= 4 && LEVEL_RANK[bestLevel] < LEVEL_RANK["Heavy"]) {
-    bestLevel = "Heavy";
-  }
-  if (flagged >= 5 && LEVEL_RANK[bestLevel] < LEVEL_RANK["Full Gut"]) {
-    bestLevel = "Full Gut";
-  }
+  if (flagged >= 4 && LEVEL_RANK[bestLevel] < LEVEL_RANK["Heavy"]) bestLevel = "Heavy";
+  if (flagged >= 5 && LEVEL_RANK[bestLevel] < LEVEL_RANK["Full Gut"]) bestLevel = "Full Gut";
 
-  const spec = LEVELS.find((l) => l.level === bestLevel) ?? LEVELS[0];
+  return { level: bestLevel, drivers: dedupe(drivers), empty };
+}
+
+/**
+ * Size repairs from the condition text. Caller can pass an explicit
+ * `override` level (the calculator form's "Repair tier" dropdown) and
+ * the engine will use that instead of the keyword-detected level. The
+ * detected level is still returned as `auto_level` so analyzeDeal can
+ * warn when override and notes disagree.
+ */
+export function estimateRepairs(
+  sqft: number,
+  conditionText: string,
+  override?: RepairLevel
+): RepairEstimate {
+  const detected = detectRepairLevel(conditionText);
+  const finalLevel = override ?? detected.level;
+
+  const spec = LEVELS.find((l) => l.level === finalLevel) ?? LEVELS[0];
   const low = Math.round(sqft * spec.costPerSqft.low);
   const high = Math.round(sqft * spec.costPerSqft.high);
   const point = Math.round((low + high) / 2);
 
   return {
-    level: bestLevel,
+    level: finalLevel,
     low,
     high,
     point,
-    drivers: dedupe(drivers),
+    drivers: detected.drivers,
     cost_per_sqft: spec.costPerSqft,
+    auto_level: detected.level,
+    override_used: override != null && override !== detected.level,
   };
 }
 
