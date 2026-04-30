@@ -69,7 +69,7 @@ export default async function RepProfilePage({ params }: { params: Promise<{ id:
 
       <header className="flex flex-wrap items-center gap-4">
         <div className="grid h-14 w-14 place-items-center rounded-full bg-ink-200 font-semibold text-ink-700">
-          {rep.full_name.split(" ").map((s) => s[0]).slice(0, 2).join("")}
+          {rep.full_name.split(" ").map((s: string) => s[0]).slice(0, 2).join("")}
         </div>
         <div>
           <div className="text-2xl font-semibold">{rep.full_name}</div>

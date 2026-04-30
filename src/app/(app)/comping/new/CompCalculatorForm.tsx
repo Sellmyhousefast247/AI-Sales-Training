@@ -2,8 +2,11 @@
 
 import { useEffect, useMemo, useState } from "react";
 import { useRouter } from "next/navigation";
-import { detectRepairLevel } from "@/lib/comping";
-import type { RepairLevel } from "@/lib/comping";
+// Import the pure helpers directly (not via @/lib/comping) — that
+// barrel re-exports server-only modules like the warmer + orchestrator,
+// which would pull next/headers into the client bundle and fail to build.
+import { detectRepairLevel } from "@/lib/comping/repair-estimator";
+import type { RepairLevel } from "@/lib/comping/types";
 
 interface ManualComp {
   status: "sold" | "active" | "pending";

@@ -43,7 +43,7 @@ async function run(req: NextRequest) {
         .eq("is_current", true);
 
       const result = computeRepTier({
-        scores: (scores ?? []).map((s) => ({
+        scores: (scores ?? []).map((s: any) => ({
           average_score: Number(s.average_score),
           created_at: s.created_at,
         })),

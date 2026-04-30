@@ -57,12 +57,14 @@ export async function scoreCall(input: ScoreCallInput): Promise<ScoreCallResult>
       model: MODEL,
       max_tokens: 4096,
       temperature: 0,
+      // Prompt caching uses a SDK property the 0.32.x types don't yet
+      // expose; cast keeps the runtime API call shape correct.
       system: [
         {
           type: "text",
           text: SCORING_SYSTEM_PROMPT,
           cache_control: { type: "ephemeral" },
-        },
+        } as unknown as Anthropic.TextBlockParam,
       ],
       tools: [SCORE_CALL_TOOL as unknown as Anthropic.Tool],
       tool_choice: { type: "tool", name: "score_call" },

@@ -83,7 +83,7 @@ export async function POST(req: NextRequest) {
     .eq("is_current", true);
 
   const tierBefore = computeRepTier({
-    scores: (priorScores ?? []).map((s) => ({
+    scores: (priorScores ?? []).map((s: any) => ({
       average_score: Number(s.final_score ?? s.average_score),
       created_at: s.created_at,
     })),
@@ -114,7 +114,7 @@ export async function POST(req: NextRequest) {
   const { parsed: out, raw, model, inputTokens, outputTokens, costUsd } = result;
 
   const projectedAvg =
-    ((priorScores ?? []).reduce((a, s) => a + Number(s.final_score ?? s.average_score), 0) + out.final_score) /
+    ((priorScores ?? []).reduce((a: number, s: any) => a + Number(s.final_score ?? s.average_score), 0) + out.final_score) /
     Math.max(1, (priorScores?.length ?? 0) + 1);
   const tierAfter = tierFromAverage(projectedAvg);
 
@@ -189,7 +189,7 @@ export async function POST(req: NextRequest) {
   });
 
   const allScores = [
-    ...(priorScores ?? []).map((s) => ({
+    ...(priorScores ?? []).map((s: any) => ({
       average_score: Number(s.final_score ?? s.average_score),
       created_at: s.created_at,
     })),
