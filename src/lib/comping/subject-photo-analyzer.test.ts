@@ -18,6 +18,7 @@ describe("analyzeSubjectPhotos", () => {
       condition_text: "",
       drivers: [],
       summary: "",
+      property_type: null,
     });
   });
 
@@ -30,6 +31,7 @@ describe("analyzeSubjectPhotos", () => {
       condition_text: "",
       drivers: [],
       summary: "",
+      property_type: null,
     });
   });
 
@@ -38,5 +40,6 @@ describe("analyzeSubjectPhotos", () => {
     expect(out.condition).toBe("average");
     expect(out.condition_text).toBe("");
     expect(out.summary).toMatch(/Vision skipped/i);
+    expect(out.property_type).toBeNull();
   });
 });

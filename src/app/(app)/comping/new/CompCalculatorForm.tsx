@@ -24,6 +24,10 @@ const PROPERTY_TYPES = [
   { v: "manufactured", l: "Manufactured" },
 ] as const;
 
+function labelFor(v: typeof PROPERTY_TYPES[number]["v"]): string {
+  return PROPERTY_TYPES.find((t) => t.v === v)?.l ?? v;
+}
+
 export function CompCalculatorForm() {
   const router = useRouter();
   const [busy, setBusy] = useState(false);
@@ -52,6 +56,10 @@ export function CompCalculatorForm() {
   const [photoBusy, setPhotoBusy] = useState(false);
   const [photoErr, setPhotoErr] = useState<string | null>(null);
   const [photoSummary, setPhotoSummary] = useState<string | null>(null);
+  // Vision can return any property type the engine knows about — including
+  // ones that aren't in the dropdown (e.g. "land"). We keep the raw string
+  // and only surface the mismatch when it's a switchable option below.
+  const [visionType, setVisionType] = useState<string | null>(null);
   const [uploading, setUploading] = useState(0);
 
   async function uploadFiles(files: FileList | null) {
@@ -92,6 +100,7 @@ export function CompCalculatorForm() {
     setPhotoBusy(true);
     setPhotoErr(null);
     setPhotoSummary(null);
+    setVisionType(null);
     const res = await fetch("/api/comp/analyze-photos", {
       method: "POST",
       headers: { "content-type": "application/json" },
@@ -108,6 +117,7 @@ export function CompCalculatorForm() {
       condition_text: string;
       drivers: string[];
       summary: string;
+      property_type: string | null;
     };
     if (out.condition_text) {
       // Append to anything the user already typed instead of overwriting.
@@ -116,9 +126,22 @@ export function CompCalculatorForm() {
         .join(", ");
       setConditionText(merged);
     }
+    if (out.property_type) {
+      setVisionType(out.property_type);
+    }
     setPhotoSummary(out.summary || `Overall condition: ${out.condition}.`);
     setPhotoBusy(false);
   }
+
+  // Only surface the mismatch when the vision-detected type is one we can
+  // switch the dropdown to. Out-of-bounds types (e.g. "land") are noted in
+  // the summary but don't drive a one-click switch.
+  const propertyTypeMismatch =
+    visionType != null &&
+    visionType !== propertyType &&
+    PROPERTY_TYPES.some((t) => t.v === visionType)
+      ? (visionType as typeof PROPERTY_TYPES[number]["v"])
+      : null;
 
   const [comps, setComps] = useState<ManualComp[]>([]);
   const [showCompsPaste, setShowCompsPaste] = useState(false);
@@ -390,6 +413,26 @@ export function CompCalculatorForm() {
         {photoErr ? (
           <div className="mt-2 rounded border border-red-200 bg-red-50 px-2 py-1 text-xs text-red-900">
             {photoErr}
+          </div>
+        ) : null}
+        {propertyTypeMismatch ? (
+          <div className="mt-2 flex items-center justify-between gap-3 rounded border border-amber-300 bg-amber-50 px-3 py-2 text-xs text-amber-900">
+            <span>
+              Photos look like a{" "}
+              <strong>{labelFor(propertyTypeMismatch)}</strong> but you picked{" "}
+              <strong>{labelFor(propertyType)}</strong>. Mixing types can throw
+              off the comp set — comps are filtered by type.
+            </span>
+            <button
+              type="button"
+              onClick={() => {
+                setPropertyType(propertyTypeMismatch);
+                setVisionType(null);
+              }}
+              className="rounded-md border border-amber-400 bg-white px-2 py-1 text-xs font-medium hover:bg-amber-100"
+            >
+              Switch to {labelFor(propertyTypeMismatch)}
+            </button>
           </div>
         ) : null}
       </Section>

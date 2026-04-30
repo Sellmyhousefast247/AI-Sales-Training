@@ -520,6 +520,22 @@ Phase 14 (PDF export + shareable link):
     Reps see Print only.
 - 120 tests still pass; typecheck clean on every new file.
 
+Phase 20 (vision-based property-type detection):
+- `analyzeSubjectPhotos` now also returns `property_type` (one of
+  the canonical types or null when vision is unsure / only saw
+  interior shots). System prompt teaches Claude the visual cues
+  (manufactured = rectangular, low-pitch, skirting; multi_family =
+  multiple front doors / mailboxes; condo = high-rise lobby; etc.).
+- Calculator form: after "Analyze photos", if vision's type
+  disagrees with the dropdown, an amber banner appears with a
+  "Switch to <type>" button that updates the form in one click.
+  Out-of-bounds vision types (e.g. "land") are stored but don't
+  trigger the banner since the dropdown can't switch to them.
+- `SubjectPhotoAnalysis.property_type` typed as
+  `PropertyType | null`; the analyzer maps "unknown" → null so the
+  banner doesn't fire when vision wasn't sure.
+- 3 analyzer tests updated to include the new field.
+
 Phase 19 (property-type-aware comping):
 - `src/lib/comping/property-type.ts` — single source of truth for type
   detection. `detectPropertyType(blob)` runs an ordered regex set

@@ -1,6 +1,6 @@
 import Anthropic from "@anthropic-ai/sdk";
 import { z } from "zod";
-import type { CompCondition } from "./types";
+import type { CompCondition, PropertyType } from "./types";
 
 /**
  * Analyzes a subject property's listing photos and returns:
@@ -8,10 +8,22 @@ import type { CompCondition } from "./types";
  *   - a `condition_text` string formatted to drive the keyword-based
  *     repair estimator (comma-separated drivers + a brief summary)
  *   - structured `drivers` for UI display
+ *   - property_type best-guess (so the form can warn when the user's
+ *     selection disagrees with what the photos actually show)
  *
  * Used by the calculator form to pre-fill the condition box from a
  * pasted list of photo URLs. The user reviews/edits before submitting.
  */
+
+const VISION_PROPERTY_TYPES = [
+  "single_family",
+  "townhouse",
+  "condo",
+  "multi_family",
+  "manufactured",
+  "land",
+  "unknown",
+] as const;
 
 const MODEL = process.env.ANTHROPIC_MODEL_LIGHT ?? "claude-haiku-4-5-20251001";
 const MAX_PHOTOS = 8;
@@ -31,6 +43,13 @@ const tool = {
       condition_text: { type: "string" },
       drivers: { type: "array", items: { type: "string" } },
       summary: { type: "string" },
+      property_type: {
+        type: "string",
+        enum: [...VISION_PROPERTY_TYPES],
+        description:
+          "Best guess of the property type from the photos. Use 'unknown' " +
+          "if you only see interior shots or otherwise can't tell.",
+      },
     },
     required: ["condition", "condition_text", "drivers"],
   },
@@ -41,6 +60,7 @@ const responseSchema = z.object({
   condition_text: z.string(),
   drivers: z.array(z.string()).default([]),
   summary: z.string().optional().default(""),
+  property_type: z.enum(VISION_PROPERTY_TYPES).optional(),
 });
 
 export interface SubjectPhotoAnalysis {
@@ -48,6 +68,8 @@ export interface SubjectPhotoAnalysis {
   condition_text: string;
   drivers: string[];
   summary: string;
+  /** Vision's best guess of the property type. null when not sure or unknown. */
+  property_type: PropertyType | null;
 }
 
 let _client: Anthropic | null = null;
@@ -78,6 +100,16 @@ const SYSTEM = [
   "",
   "If you only see exterior or partial photos, say so in the summary",
   "and stick to the conservative end of what you can verify.",
+  "",
+  "For property_type, use these visual cues:",
+  "  single_family: a detached house on its own lot; pitched roof, own walls.",
+  "  townhouse: row of attached homes sharing side walls; uniform facade.",
+  "  condo: high/mid-rise unit; shared lobby, balcony in a tower.",
+  "  multi_family: 2-4 unit building with multiple front doors / mailboxes.",
+  "  manufactured: rectangular shape, low-pitch roof, often on piers /",
+  "    skirting; double-wide trailer aesthetic.",
+  "  land: vacant lot, no structure visible.",
+  "  unknown: only interior shots — can't tell from outside.",
 ].join("\n");
 
 export async function analyzeSubjectPhotos(
@@ -85,7 +117,13 @@ export async function analyzeSubjectPhotos(
 ): Promise<SubjectPhotoAnalysis> {
   const photos = photoUrls.filter(Boolean).slice(0, MAX_PHOTOS);
   if (photos.length === 0) {
-    return { condition: "average", condition_text: "", drivers: [], summary: "" };
+    return {
+      condition: "average",
+      condition_text: "",
+      drivers: [],
+      summary: "",
+      property_type: null,
+    };
   }
   if (!process.env.ANTHROPIC_API_KEY) {
     return {
@@ -93,6 +131,7 @@ export async function analyzeSubjectPhotos(
       condition_text: "",
       drivers: [],
       summary: "Vision skipped — ANTHROPIC_API_KEY not configured.",
+      property_type: null,
     };
   }
 
@@ -118,17 +157,30 @@ export async function analyzeSubjectPhotos(
   const toolUse = resp.content.find((c) => c.type === "tool_use") as
     | Anthropic.ToolUseBlock
     | undefined;
-  if (!toolUse) {
-    return { condition: "average", condition_text: "", drivers: [], summary: "" };
-  }
+  const empty = {
+    condition: "average" as CompCondition,
+    condition_text: "",
+    drivers: [] as string[],
+    summary: "",
+    property_type: null,
+  };
+  if (!toolUse) return empty;
+
   const parsed = responseSchema.safeParse(toolUse.input);
-  if (!parsed.success) {
-    return { condition: "average", condition_text: "", drivers: [], summary: "" };
-  }
+  if (!parsed.success) return empty;
+
+  // Treat "unknown" the same as no answer so the form doesn't trigger
+  // a mismatch warning when vision wasn't sure.
+  const visionType =
+    parsed.data.property_type && parsed.data.property_type !== "unknown"
+      ? (parsed.data.property_type as PropertyType)
+      : null;
+
   return {
     condition: parsed.data.condition,
     condition_text: parsed.data.condition_text.trim(),
     drivers: parsed.data.drivers,
     summary: parsed.data.summary,
+    property_type: visionType,
   };
 }
