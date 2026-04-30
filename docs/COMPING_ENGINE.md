@@ -520,6 +520,22 @@ Phase 14 (PDF export + shareable link):
     Reps see Print only.
 - 120 tests still pass; typecheck clean on every new file.
 
+Phase 22 (vision detects property_type for comps too):
+- The comp photo classifier (`tagCompsByPhotos`) now returns
+  `{ condition, property_type }` per comp. The tool schema gained a
+  `property_type` enum + system prompt cues mirroring the subject
+  analyzer (manufactured = rectangular + skirting, multi-family =
+  multiple front doors, etc.).
+- When vision confidently identifies a property type, it overrides
+  the provider's value. Provider data is structured but routinely
+  wrong or missing for manufactured / multi-family records — vision
+  catches that. "unknown" returns leave the provider's value intact.
+- `classifyConditionsFromPhotos` now returns
+  `Record<string, PhotoClassification>` instead of
+  `Record<string, CompCondition>`. Three classifier tests updated to
+  match the new shape, plus a new test asserting that a manufactured
+  comp's type isn't clobbered when vision can't tell.
+
 Phase 21 (novation extended-window comping):
 - Novations sell as-is on the MLS — the seller never invests in
   rehab — so the As-Is comp pool is naturally thinner. The pipeline

@@ -36,12 +36,15 @@ describe("classifyConditionsFromPhotos", () => {
     expect(await classifyConditionsFromPhotos([])).toEqual({});
   });
 
-  it("falls back to 'average' for every input when no API key is set", async () => {
+  it("falls back to {average, null} for every input when no API key is set", async () => {
     const out = await classifyConditionsFromPhotos([
       { id: "c1", photo_urls: ["https://a.example/p1.jpg"] },
       { id: "c2", photo_urls: ["https://b.example/p1.jpg", "https://b.example/p2.jpg"] },
     ]);
-    expect(out).toEqual({ c1: "average", c2: "average" });
+    expect(out).toEqual({
+      c1: { condition: "average", property_type: null },
+      c2: { condition: "average", property_type: null },
+    });
   });
 });
 
@@ -67,8 +70,10 @@ describe("tagCompsByPhotos", () => {
     ];
     const out = await tagCompsByPhotos(comps);
     // No-API-key path: condition gets reset to "average" since the
-    // classifier returns that uniformly. All other fields untouched.
+    // classifier returns that uniformly. property_type is null so the
+    // provider's value (single_family) is preserved. Other fields untouched.
     expect(out[0].condition).toBe("average");
+    expect(out[0].property_type).toBe("single_family");
     expect(out[0].source_id).toBe("P1");
     expect(out[0].price).toBe(320_000);
   });
@@ -79,5 +84,20 @@ describe("tagCompsByPhotos", () => {
     ];
     const out = await tagCompsByPhotos(comps);
     expect(out[0].condition_source).toBe("photos");
+  });
+
+  it("does NOT override the provider's property_type when vision returns null", async () => {
+    // No-API-key path → property_type comes back as null. Provider's
+    // existing type (manufactured here) must be preserved untouched so
+    // the engine's strict-type guard keeps working.
+    const comps = [
+      comp({
+        source_id: "P1",
+        property_type: "manufactured",
+        photo_urls: ["https://x/p.jpg"],
+      }),
+    ];
+    const out = await tagCompsByPhotos(comps);
+    expect(out[0].property_type).toBe("manufactured");
   });
 });
