@@ -13,52 +13,47 @@
 -- ║  0003 · Road to a Deal — re-shape scoring schema                  ║
 -- ╚═══════════════════════════════════════════════════════════════════╝
 
-alter table public.category_scores
-  drop constraint if exists category_scores_category_check;
-
 drop table if exists public.discovery_checks cascade;
 
--- Rename `category` → `step` only if the rename hasn't happened yet.
-do $$
-begin
-  if exists (
-    select 1 from information_schema.columns
-    where table_schema = 'public'
-      and table_name = 'category_scores'
-      and column_name = 'category'
-  ) then
-    alter table public.category_scores rename column category to step;
-  end if;
-end $$;
-
-alter table public.category_scores
-  drop constraint if exists category_scores_step_check;
-alter table public.category_scores
-  add  constraint category_scores_step_check
-  check (step in (
-    'rapport','motivation','asking_price','trial_close_1','first_hold',
-    'anchor','negotiation','trial_close_2','second_hold','approval_close'
-  ));
-
-alter table public.category_scores drop constraint if exists category_scores_score_check;
-alter table public.category_scores
-  drop constraint if exists category_scores_step_score_values_check;
-alter table public.category_scores
-  add  constraint category_scores_step_score_values_check
-  check (score in (0, 5, 10));
-
--- Rename table category_scores → step_scores only if it hasn't been done.
+-- Branch on whether category_scores still exists. If 0003 already ran
+-- in a prior session, it's been renamed to step_scores and we skip.
+-- Wrapping in a DO block keeps `if exists` covering the table itself,
+-- not just the constraint.
 do $$
 begin
   if exists (
     select 1 from information_schema.tables
     where table_schema = 'public' and table_name = 'category_scores'
-  )
-  and not exists (
-    select 1 from information_schema.tables
-    where table_schema = 'public' and table_name = 'step_scores'
-  )
-  then
+  ) then
+    alter table public.category_scores
+      drop constraint if exists category_scores_category_check;
+    alter table public.category_scores
+      drop constraint if exists category_scores_score_check;
+
+    if exists (
+      select 1 from information_schema.columns
+      where table_schema = 'public'
+        and table_name = 'category_scores'
+        and column_name = 'category'
+    ) then
+      alter table public.category_scores rename column category to step;
+    end if;
+
+    alter table public.category_scores
+      drop constraint if exists category_scores_step_check;
+    alter table public.category_scores
+      add  constraint category_scores_step_check
+      check (step in (
+        'rapport','motivation','asking_price','trial_close_1','first_hold',
+        'anchor','negotiation','trial_close_2','second_hold','approval_close'
+      ));
+
+    alter table public.category_scores
+      drop constraint if exists category_scores_step_score_values_check;
+    alter table public.category_scores
+      add  constraint category_scores_step_score_values_check
+      check (score in (0, 5, 10));
+
     alter table public.category_scores rename to step_scores;
   end if;
 end $$;
