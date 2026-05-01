@@ -76,8 +76,17 @@ export const marketSignalsSchema = z.object({
 });
 export type MarketSignals = z.infer<typeof marketSignalsSchema>;
 
-export const repairLevelSchema = z.enum(["Light", "Moderate", "Heavy", "Full Gut"]);
+export const repairLevelSchema = z.enum(["Light", "Moderate", "Heavy", "Full Gut", "Teardown"]);
 export type RepairLevel = z.infer<typeof repairLevelSchema>;
+
+/** User-facing labels for repair tiers — what the calculator UI shows. */
+export const REPAIR_LEVEL_LABELS: Record<RepairLevel, string> = {
+  Light: "Turnkey",
+  Moderate: "Outdated",
+  Heavy: "Heavy Rehab",
+  "Full Gut": "Full Gut",
+  Teardown: "Teardown",
+};
 
 export const analyzeDealInputSchema = z.object({
   subject: subjectPropertySchema,
@@ -90,6 +99,11 @@ export const analyzeDealInputSchema = z.object({
       this instead of detecting from condition_text and emits a warning
       if the two disagree. */
   repair_level: repairLevelSchema.optional(),
+  /** Manual override of the market's pending ratio (0–1). When supplied,
+      the engine uses this directly to pick the wholesale buying %
+      multiplier and to decide how conservative the novation offer
+      should be — bypasses the auto-detection from comp counts. */
+  manual_pending_pct: z.number().min(0).max(1).optional(),
 });
 export type AnalyzeDealInput = z.infer<typeof analyzeDealInputSchema>;
 

@@ -3,7 +3,7 @@ import {
   buyingPctFromPending,
   clampBuyingPct,
   marketAdjustedMAO,
-  novationMAO,
+  novationMAOWithPending,
   wholesaleMAO,
 } from "./formulas";
 import { compatibleTypes, isStrictPropertyType } from "./property-type";
@@ -88,6 +88,7 @@ export function analyzeDeal(input: AnalyzeDealInput): AnalyzeDealOutput {
     wholesale_fee,
     novation_fee,
     repair_level,
+    manual_pending_pct,
   } = input;
   const warnings: string[] = [];
 
@@ -120,13 +121,24 @@ export function analyzeDeal(input: AnalyzeDealInput): AnalyzeDealOutput {
     );
   }
 
-  // 4. Buying % from pending ratio of supplied actives/pendings.
+  // 4. Buying % — manual override > pending ratio of supplied comps.
+  //    The same pending ratio also feeds novation conservatism below.
   const actives = comps.filter((c) => c.status === "active").length;
   const pendings = comps.filter((c) => c.status === "pending").length;
-  if (actives + pendings === 0) {
+  let pendingRatio: number;
+  if (manual_pending_pct != null) {
+    pendingRatio = manual_pending_pct;
+  } else if (actives + pendings > 0) {
+    pendingRatio = pendings / (actives + pendings);
+  } else {
+    pendingRatio = 0.30; // neutral default — nothing observed
     warnings.push("No active or pending comps; using default 70% buying.");
   }
-  const baseBuyingPct = buyingPctFromPending(actives, pendings);
+  // Reuse the existing tiered table by faking the counts when we have a ratio.
+  const baseBuyingPct = buyingPctFromPending(
+    Math.round((1 - pendingRatio) * 100),
+    Math.round(pendingRatio * 100)
+  );
   const buyingPct = clampBuyingPct(
     baseBuyingPct + buyingPctAdjustment(market_signals, repair.level)
   );
@@ -136,8 +148,26 @@ export function analyzeDeal(input: AnalyzeDealInput): AnalyzeDealOutput {
   const asIsValue = asIsAgg?.point ?? Math.max(0, Math.round(arv - repair.point));
 
   const wholesale = wholesaleMAO(arv, repair.point, wholesale_fee);
-  const novation = novationMAO(asIsValue, novation_fee);
+  const novation = novationMAOWithPending(asIsValue, pendingRatio, novation_fee);
   const adjusted = marketAdjustedMAO(arv, repair.point, buyingPct, wholesale_fee);
+
+  // Teardown: structure has no value, the deal is priced on the lot.
+  // Warn the user that the engine's house-comps math doesn't apply.
+  if (repair.level === "Teardown") {
+    warnings.push(
+      "Teardown selected — house comps don't apply. Switch property type to Land to value from lot comps."
+    );
+  }
+  if (manual_pending_pct != null) {
+    warnings.push(
+      `Manual pending ratio: ${(manual_pending_pct * 100).toFixed(0)}% (overrides comp counts).`
+    );
+  }
+  if (pendingRatio < 0.15) {
+    warnings.push("Very conservative novation — pending ratio under 15% signals a slow market.");
+  } else if (pendingRatio < 0.30) {
+    warnings.push("Conservative novation — pending ratio under 30%.");
+  }
 
   // 6. Confidence — driven by ARV agg quality + warning count.
   const confidence = scoreConfidence(arvAgg, warnings);

@@ -35,6 +35,8 @@ const lookupBody = z.object({
   comps_override: z.array(compRecordSchema).optional(),
   signals_override: marketSignalsSchema.optional(),
   persist: z.boolean().optional(),
+  repair_level: z.enum(["Light", "Moderate", "Heavy", "Full Gut", "Teardown"]).optional(),
+  manual_pending_pct: z.number().min(0).max(1).optional(),
 });
 
 const manualBody = analyzeDealInputSchema.extend({
@@ -80,6 +82,8 @@ export async function POST(req: Request) {
         comps_override: parsed.comps_override,
         signals_override: parsed.signals_override,
         persist: parsed.persist,
+        repair_level: parsed.repair_level,
+        manual_pending_pct: parsed.manual_pending_pct,
       });
       return NextResponse.json(result);
     }

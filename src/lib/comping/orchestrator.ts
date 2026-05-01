@@ -49,6 +49,10 @@ export interface FetchAndAnalyzeInput {
   persist?: boolean;
   /** When true, run the Claude condition classifier on comp remarks. Default true when ANTHROPIC_API_KEY is set. */
   classify_conditions?: boolean;
+  /** Manual override of the repair tier for this run. */
+  repair_level?: import("./types").RepairLevel;
+  /** Manual override of the market's pending ratio (0–1). */
+  manual_pending_pct?: number;
 }
 
 export interface FetchAndAnalyzeResult {
@@ -175,6 +179,8 @@ export async function fetchAndAnalyze(
     market_signals: signals,
     wholesale_fee: input.wholesale_fee ?? 20_000,
     novation_fee: input.novation_fee ?? 40_000,
+    repair_level: input.repair_level,
+    manual_pending_pct: input.manual_pending_pct,
   });
   if (ndsState && compsImputed > 0) {
     output.warnings.push(
@@ -223,6 +229,23 @@ export async function fetchAndAnalyze(
     comps_imputed: compsImputed,
     non_disclosure_state: ndsState,
   };
+}
+
+/**
+ * Stand-alone subject lookup. Used by /api/comp/lookup-subject so the
+ * calculator UI can pre-fill beds/baths/sqft/year-built before the user
+ * runs a full analysis. Returns null when no providers are configured
+ * or no provider can resolve the address.
+ */
+export async function resolveSubjectFromProviders(query: {
+  address: string;
+  city?: string;
+  state?: string;
+  zip?: string;
+}): Promise<SubjectProperty | null> {
+  const router = buildRouter();
+  if (!router) return null;
+  return await router.resolveSubject(query);
 }
 
 function buildRouter(): ProviderRouter | null {

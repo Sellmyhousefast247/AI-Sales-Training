@@ -126,37 +126,49 @@ export default async function CompingListPage({
     role === "manager" || role === "company_admin" || role === "super_admin";
 
   return (
-    <div className="space-y-6 p-8">
-      <header className="flex items-center justify-between">
-        <div>
-          <h1 className="text-2xl font-semibold">Comping</h1>
-          <p className="text-sm text-ink-500">Deal analyses — ARV, repairs, and MAO offers</p>
-        </div>
-        <div className="flex items-center gap-2">
-          {canManageQueue ? (
-            <>
-              <a
-                href={csvHref(repFilter, teamFilter)}
-                className="rounded-md border border-ink-300 bg-white px-4 py-2 text-sm font-medium hover:bg-ink-100"
-              >
-                Export CSV
-              </a>
+    <div className="min-h-full bg-ink-50">
+      <div className="bg-brand-gradient">
+        <div className="mx-auto max-w-7xl px-6 py-8 text-white md:px-8 md:py-10">
+          <div className="flex flex-wrap items-end justify-between gap-4">
+            <div>
+              <div className="text-[11px] font-semibold uppercase tracking-[0.18em] text-white/60">
+                Comping engine
+              </div>
+              <h1 className="mt-1 text-3xl font-bold tracking-tight md:text-4xl">
+                Run a comp in 60 seconds
+              </h1>
+              <p className="mt-2 text-sm text-white/80">
+                ARV · As-Is · Repairs · Wholesale &amp; Novation MAOs — built for live calls.
+              </p>
+            </div>
+            <div className="flex items-center gap-2">
+              {canManageQueue ? (
+                <>
+                  <a
+                    href={csvHref(repFilter, teamFilter)}
+                    className="rounded-lg border border-white/20 bg-white/10 px-4 py-2 text-sm font-medium text-white backdrop-blur transition hover:bg-white/20"
+                  >
+                    Export CSV
+                  </a>
+                  <Link
+                    href="/comping/warm-queue"
+                    className="rounded-lg border border-white/20 bg-white/10 px-4 py-2 text-sm font-medium text-white backdrop-blur transition hover:bg-white/20"
+                  >
+                    Warm queue
+                  </Link>
+                </>
+              ) : null}
               <Link
-                href="/comping/warm-queue"
-                className="rounded-md border border-ink-300 bg-white px-4 py-2 text-sm font-medium hover:bg-ink-100"
+                href="/comping/new"
+                className="rounded-lg bg-white px-4 py-2 text-sm font-bold text-brand-600 shadow-lg transition hover:shadow-xl"
               >
-                Warm queue
+                + New analysis
               </Link>
-            </>
-          ) : null}
-          <Link
-            href="/comping/new"
-            className="rounded-md bg-ink-900 px-4 py-2 text-sm font-medium text-white hover:bg-ink-800"
-          >
-            + New analysis
-          </Link>
+            </div>
+          </div>
         </div>
-      </header>
+      </div>
+      <div className="mx-auto max-w-7xl space-y-6 px-6 py-8 md:px-8">
 
       <CompingFilterBar
         reps={allUsers}
@@ -288,6 +300,7 @@ export default async function CompingListPage({
           ) : null}
         </div>
       )}
+      </div>
     </div>
   );
 }

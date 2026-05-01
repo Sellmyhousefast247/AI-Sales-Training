@@ -45,6 +45,19 @@ const LEVELS: LevelSpec[] = [
       "full rehab", "complete rehab",
     ],
   },
+  {
+    // Teardown: structure has no value, the deal is priced on the lot.
+    // We model that as "rebuild from scratch" cost-per-sqft so MAOs
+    // collapse toward zero unless lot value carries the deal — and the
+    // analyzeDeal layer emits a warning prompting the user to value as
+    // land instead.
+    level: "Teardown",
+    costPerSqft: { low: 180, high: 300 },
+    keywords: [
+      "teardown", "tear down", "tear-down", "demolish", "demolition",
+      "scrape", "scrape lot", "land value only", "lot value only",
+    ],
+  },
 ];
 
 const HARD_OVERRIDES: { match: string; minLevel: RepairLevel }[] = [
@@ -62,9 +75,10 @@ const LEVEL_RANK: Record<RepairLevel, number> = {
   Moderate: 1,
   Heavy: 2,
   "Full Gut": 3,
+  Teardown: 4,
 };
 
-const RANK_LEVEL: RepairLevel[] = ["Light", "Moderate", "Heavy", "Full Gut"];
+const RANK_LEVEL: RepairLevel[] = ["Light", "Moderate", "Heavy", "Full Gut", "Teardown"];
 
 export interface DetectedRepairLevel {
   level: RepairLevel;

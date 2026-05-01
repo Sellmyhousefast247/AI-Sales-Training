@@ -13,6 +13,30 @@ export function novationMAO(asIsValue: number, fee = DEFAULT_NOVATION_FEE): numb
   return Math.round(asIsValue * NOVATION_SALE_DISCOUNT - fee);
 }
 
+/**
+ * Pending-driven novation discount. The base novation offer assumes a
+ * normal market (≥30% pending). Below that, we hold back more — there's
+ * less buyer competition to bail us out if the listing sits.
+ *
+ *   ≥30% pending  → 0.90  (default)
+ *   15–29%        → 0.85  (conservative)
+ *   <15%          → 0.80  (very conservative)
+ */
+export function novationDiscountFromPending(pendingRatio: number): number {
+  if (pendingRatio < 0.15) return 0.80;
+  if (pendingRatio < 0.30) return 0.85;
+  return NOVATION_SALE_DISCOUNT;
+}
+
+export function novationMAOWithPending(
+  asIsValue: number,
+  pendingRatio: number,
+  fee = DEFAULT_NOVATION_FEE
+): number {
+  const discount = novationDiscountFromPending(pendingRatio);
+  return Math.round(asIsValue * discount - fee);
+}
+
 export function marketAdjustedMAO(
   arv: number,
   repairs: number,
