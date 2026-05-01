@@ -33,11 +33,22 @@ export default function SignupPage() {
     }
 
     // Provision the company server-side now that we have a session
-    await fetch("/api/companies/bootstrap", {
+    const res = await fetch("/api/companies/bootstrap", {
       method: "POST",
       headers: { "content-type": "application/json" },
       body: JSON.stringify({ company_name: companyName, full_name: fullName }),
     });
+    if (!res.ok) {
+      let detail = `${res.status}`;
+      try {
+        const j = await res.json();
+        detail = j?.error?.message ?? JSON.stringify(j);
+      } catch {
+        try { detail = await res.text(); } catch {}
+      }
+      setErr(`Workspace setup failed: ${detail}`);
+      return;
+    }
 
     router.replace("/dashboard");
     router.refresh();
