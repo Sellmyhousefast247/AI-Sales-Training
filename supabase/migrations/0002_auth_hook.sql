@@ -15,13 +15,13 @@ set search_path = public
 as $$
 declare
   claims     jsonb := coalesce(event->'claims', '{}'::jsonb);
-  user_id    uuid  := (event->>'user_id')::uuid;
+  uid        uuid  := (event->>'user_id')::uuid;
   u          record;
   rep_row    record;
 begin
   select company_id, role into u
   from public.users
-  where id = user_id;
+  where id = uid;
 
   if u.company_id is not null then
     claims := jsonb_set(claims, '{company_id}', to_jsonb(u.company_id::text));
@@ -33,7 +33,7 @@ begin
   -- attach rep_id if this user is also a rep
   select id into rep_row
   from public.reps
-  where user_id = (event->>'user_id')::uuid
+  where reps.user_id = uid
   limit 1;
   if rep_row.id is not null then
     claims := jsonb_set(claims, '{rep_id}', to_jsonb(rep_row.id::text));
