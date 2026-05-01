@@ -25,7 +25,10 @@ $$;
 
 create or replace function public.current_role_claim()
 returns text language sql stable as $$
-  select coalesce(auth.jwt() ->> 'role', '');
+  -- Read from `user_role` claim, not `role`. PostgREST treats the `role`
+  -- claim specially (it tries to SET ROLE to that value), so we keep our
+  -- application role under a non-reserved key.
+  select coalesce(auth.jwt() ->> 'user_role', '');
 $$;
 
 create or replace function public.current_rep_id()

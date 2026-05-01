@@ -27,7 +27,10 @@ begin
     claims := jsonb_set(claims, '{company_id}', to_jsonb(u.company_id::text));
   end if;
   if u.role is not null then
-    claims := jsonb_set(claims, '{role}', to_jsonb(u.role));
+    -- Use `user_role`, not `role`. PostgREST treats `role` as the Postgres
+    -- role to SET ROLE to, so naming our application role `role` causes
+    -- "role X does not exist" errors on every query.
+    claims := jsonb_set(claims, '{user_role}', to_jsonb(u.role));
   end if;
 
   -- attach rep_id if this user is also a rep

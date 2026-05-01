@@ -29,7 +29,10 @@ $$;
 
 create or replace function public.current_role_claim()
 returns text language sql stable as $$
-  select coalesce(auth.jwt() ->> 'role', '');
+  -- Read from `user_role` claim, not `role`. PostgREST treats the `role`
+  -- claim specially (it tries to SET ROLE to that value), so we keep our
+  -- application role under a non-reserved key.
+  select coalesce(auth.jwt() ->> 'user_role', '');
 $$;
 
 create or replace function public.current_rep_id()
@@ -631,7 +634,10 @@ begin
     claims := jsonb_set(claims, '{company_id}', to_jsonb(u.company_id::text));
   end if;
   if u.role is not null then
-    claims := jsonb_set(claims, '{role}', to_jsonb(u.role));
+    -- Use `user_role`, not `role`. PostgREST treats `role` as the Postgres
+    -- role to SET ROLE to, so naming our application role `role` causes
+    -- "role X does not exist" errors on every query.
+    claims := jsonb_set(claims, '{user_role}', to_jsonb(u.role));
   end if;
 
   -- attach rep_id if this user is also a rep
