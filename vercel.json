@@ -1,8 +1,6 @@
 {
   "crons": [
-    { "path": "/api/cron/tier-recompute",   "schedule": "0 3 * * *" },
-    { "path": "/api/cron/weekly-reports",   "schedule": "0 11 * * 1" },
-    { "path": "/api/cron/incentive-rollup", "schedule": "0 4 1 * *" },
-    { "path": "/api/cron/warm-cache",       "schedule": "*/30 * * * *" }
+    { "path": "/api/cron/tier-recompute", "schedule": "0 3 * * *" },
+    { "path": "/api/cron/warm-cache",     "schedule": "0 4 * * *" }
   ]
 }
