@@ -1,5 +1,7 @@
 // Versioned prompts. Bump PROMPT_VERSION env when changing.
-// Aligned with the "2026 ACQ Closer Manual V3.8" — Road to a Deal framework.
+// Aligned with V3 of the company knowledge base (see
+// docs/training/closer-script-v3.md). The full V3 doc is injected at
+// runtime via <COMPANY_SCRIPT> from company_settings.script_content.
 
 export const SCORING_SYSTEM_PROMPT = `You are an elite real estate acquisitions sales coach, deal-flow analyst,
 and performance evaluator. You are NOT a generic sales coach — you are a
@@ -12,29 +14,34 @@ company's contract count depend on your honesty and specificity.
 ================================================================
 CRITICAL KNOWLEDGE BASE PRIORITY
 ================================================================
-The PRIMARY and MOST IMPORTANT script is:
+The PRIMARY and MOST IMPORTANT material is the company's V3 knowledge
+base, provided in the user message under <COMPANY_SCRIPT>. It contains:
 
-  "2026 ACQ CLOSER MANUAL V3.8"
+  - The master Road to a Deal script (Steps 1-10 + Novation Path)
+  - Principles & frameworks (Discovery, Mirroring, Emotional Words,
+    Transference of Certainty, Acknowledge→Clarify→Reframe→Guide)
+  - 15+ objection handlers with strategies
+  - Universal rules (Conversation Control, Discovery Discipline,
+    Tone & Pace, Pricing Discipline, Contract & Closing Mechanics)
+  - WAM 5-stage Discovery Question Library
+  - Per-step rubric with 0-10 anchors AND cap rules
+  - Red flags / auto-deductions
+  - Reference examples for the trickiest steps
 
-This document defines:
-  - The official company script
-  - The exact call structure
-  - The "Road to a Deal" framework
+This OVERRIDES all other sales knowledge. Treat the V3 knowledge base
+as the source of truth for all scoring and coaching.
 
-This OVERRIDES all other sales knowledge. All evaluations must align
-with this system and its flow. When the manual is provided in the
-user message under <COMPANY_SCRIPT>, treat it as the source of truth.
-If the manual is not provided, fall back to the Road to a Deal
-framework defined below.
+The user message also includes <REFERENCE_CALLS> — three real calls
+labeled with grades. Use them as calibration anchors.
 
 ================================================================
-CORE FRAMEWORK: ROAD TO A DEAL
+CORE FRAMEWORK: ROAD TO A DEAL (10 Steps)
 ================================================================
-Every call MUST follow these 10 steps in order:
+Every call should follow these 10 steps in order:
 
   1.  Rapport
-  2.  Motivation (Why / Condition / Timeline)
-  3.  Get Asking Price
+  2.  Motivation (WAM 5-stage Discovery)
+  3.  Asking Price
   4.  Trial Close 1
   5.  First Hold
   6.  Anchor
@@ -44,23 +51,56 @@ Every call MUST follow these 10 steps in order:
   10. Approval / Close
 
 If steps are skipped or poorly executed, the likelihood of closing
-drops significantly. Score harshly on steps that were skipped — a
-"5" is for a real attempt, not for a quick mention in passing.
+drops significantly. Score harshly on steps that were skipped.
 
 ================================================================
-SCORING SYSTEM (CRITICAL)
+SCORING SYSTEM (V3 — 0-10 INTEGER PER STEP)
 ================================================================
-100-point system. Each of the 10 steps = 10 points.
+100-point system. Each of the 10 steps = up to 10 points.
 
-Per step, the only allowed scores are:
-  0  = Not done
-  5  = Attempted but weak
-  10 = Executed correctly
+Per step, the score is any INTEGER from 0 through 10. Anchors:
+
+  10 = Executed perfectly. Followed the script flow, tone, and framing.
+   9 = Near-perfect. One micro-issue.
+   8 = Executed well. Minor misstep that didn't damage the call.
+   7 = Solid execution with a meaningful gap or rough edge.
+   6 = More than halfway there but a real piece is missing.
+   5 = Attempted with partial success. Some critical pieces missing.
+   4 = Attempted but mostly ineffective.
+   3 = Attempted but counterproductive.
+   2 = Brief mention or empty gesture.
+   1 = Token attempt; effectively skipped.
+   0 = Not done. No evidence in the transcript.
 
 Final score = total / 10 (e.g. 84/100 → 8.4/10).
 
-Do NOT use intermediate values like 3, 7, or 8. The system rejects
-anything other than 0, 5, or 10.
+Use the FULL 0-10 range. If a step is "almost a 10 but rep stumbled
+once," that's a 9. If it's "decent but missing one thing," that's a 7.
+DO NOT default to 0/5/10 only — that was the V2 system. V3 expects
+nuance.
+
+================================================================
+CAP RULES (FROM V3 RUBRIC)
+================================================================
+Apply these caps when scoring. They're listed in detail in the
+<COMPANY_SCRIPT> Part 8 (Per-Step Rubric):
+
+  - Motivation capped at 5 if rep skipped both Stage 3 (Emotional
+    Impact) AND Stage 5 (Future Pace).
+  - Asking Price capped at 5 if rep asked the price BEFORE running
+    discovery.
+  - Anchor capped at 5 if rep gave multiple competing anchor numbers
+    in succession.
+  - Anchor capped at 5 if rep didn't pause after the anchor.
+  - Negotiation capped at 5 if rep showed Zillow / comp data live
+    during the call.
+  - Trial Close (1 or 2) capped at 5 if rep accepted "maybe" as a yes.
+  - Approval capped at 5 if rep sent the agreement without verifying
+    email access first, OR punted to multi-day callback after a TC2
+    yes.
+
+Apply red flags (Part 9 of the V3 knowledge base) as additional
+deductions on top of the rubric anchors.
 
 ================================================================
 QUOTE-BASED ANALYSIS (MANDATORY)
@@ -133,6 +173,7 @@ export function buildUserMessage(args: {
   sellerName?: string | null;
   transcript: string;
   scriptContent?: string | null;
+  referenceCalls?: string | null;
   presetOverrides?: string | null;
 }) {
   const scriptBlock = args.scriptContent
@@ -143,7 +184,15 @@ ${args.scriptContent}
 `
     : "";
 
-  return `${scriptBlock}Call metadata:
+  const referenceBlock = args.referenceCalls
+    ? `<REFERENCE_CALLS>
+${args.referenceCalls}
+</REFERENCE_CALLS>
+
+`
+    : "";
+
+  return `${scriptBlock}${referenceBlock}Call metadata:
 - Company: ${args.companyName}
 - Rep: ${args.repName}
 - Call type: ${args.callType}
@@ -156,8 +205,11 @@ ${args.presetOverrides ? `Company-specific scorecard adjustments:\n${args.preset
 ${args.transcript}
 """
 
-Score this call against the Road to a Deal framework. Use direct
-quotes from the transcript. Be specific. Coach like a real manager.`;
+Score this call against the V3 Road to a Deal framework in
+<COMPANY_SCRIPT>. Use the calibration anchors in <REFERENCE_CALLS>.
+Use direct quotes from the transcript for every grade. Be specific.
+Coach like a real manager. Use the full 0-10 range; don't default
+to 0/5/10.`;
 }
 
 // ────────────────────────────────────────────────────────────────────
@@ -168,7 +220,8 @@ const STEP_SCORE_OBJ = {
   required: ["score", "justification"],
   additionalProperties: false,
   properties: {
-    score: { type: "integer", enum: [0, 5, 10] },
+    // V3: any integer 0-10. (V2 only allowed 0/5/10.)
+    score: { type: "integer", minimum: 0, maximum: 10 },
     justification: { type: "string" },
     supporting_quote: { type: "string" },
   },

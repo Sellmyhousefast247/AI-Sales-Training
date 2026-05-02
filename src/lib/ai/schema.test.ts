@@ -46,15 +46,48 @@ describe("scorecardOutputSchema", () => {
     expect(() => scorecardOutputSchema.parse(validBase)).not.toThrow();
   });
 
-  it("rejects step scores other than 0/5/10", () => {
-    const bad = {
+  it("accepts integer step scores 0-10 (V3)", () => {
+    // V3 rubric: any integer 0-10 is valid. 7 used to be rejected
+    // under V2; now it's a normal grade.
+    const ok = {
       ...validBase,
       step_scores: {
         ...validBase.step_scores,
         rapport: { score: 7, justification: "x", supporting_quote: "" },
       },
     };
-    expect(() => scorecardOutputSchema.parse(bad)).toThrow();
+    expect(() => scorecardOutputSchema.parse(ok)).not.toThrow();
+  });
+
+  it("rejects step scores outside 0-10", () => {
+    const tooHigh = {
+      ...validBase,
+      step_scores: {
+        ...validBase.step_scores,
+        rapport: { score: 11, justification: "x", supporting_quote: "" },
+      },
+    };
+    expect(() => scorecardOutputSchema.parse(tooHigh)).toThrow();
+
+    const negative = {
+      ...validBase,
+      step_scores: {
+        ...validBase.step_scores,
+        rapport: { score: -1, justification: "x", supporting_quote: "" },
+      },
+    };
+    expect(() => scorecardOutputSchema.parse(negative)).toThrow();
+  });
+
+  it("rejects non-integer step scores", () => {
+    const fractional = {
+      ...validBase,
+      step_scores: {
+        ...validBase.step_scores,
+        rapport: { score: 7.5, justification: "x", supporting_quote: "" },
+      },
+    };
+    expect(() => scorecardOutputSchema.parse(fractional)).toThrow();
   });
 
   it("requires at least one improvement item", () => {

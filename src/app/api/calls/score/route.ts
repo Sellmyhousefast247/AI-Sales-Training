@@ -3,6 +3,7 @@ import { z } from "zod";
 import { createSupabaseServerClient, createSupabaseAdminClient } from "@/lib/supabase/server";
 import { getCurrentProfile } from "@/lib/queries";
 import { scoreCall } from "@/lib/ai/score-call";
+import { REFERENCE_CALL_SUMMARIES } from "@/lib/ai/reference-calls";
 import { computeRepTier, tierFromAverage } from "@/lib/tier";
 import { ROAD_TO_DEAL_STEPS, type RollingWindow } from "@/lib/types";
 
@@ -102,6 +103,7 @@ export async function POST(req: NextRequest) {
       sellerName: call.seller_name,
       transcript,
       scriptContent: settings?.script_content ?? null,
+      referenceCalls: REFERENCE_CALL_SUMMARIES,
     });
   } catch (err: any) {
     await admin.from("calls").update({ scoring_status: "failed" }).eq("id", call_id);
@@ -133,7 +135,7 @@ export async function POST(req: NextRequest) {
       company_id: call.company_id,
       rep_id: call.rep_id,
       model,
-      prompt_version: process.env.PROMPT_VERSION ?? "1.0.0",
+      prompt_version: process.env.PROMPT_VERSION ?? "3.0.0",
       total_score: out.total_score,
       average_score: out.final_score,  // back-compat
       final_score: out.final_score,

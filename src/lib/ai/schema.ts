@@ -3,8 +3,9 @@ import { ROAD_TO_DEAL_STEPS } from "@/lib/types";
 
 const stepKey = z.enum(ROAD_TO_DEAL_STEPS);
 
+// V3 rubric uses any integer 0-10. (V2 only allowed 0/5/10.)
 const stepScore = z.object({
-  score: z.union([z.literal(0), z.literal(5), z.literal(10)]),
+  score: z.number().int().min(0).max(10),
   justification: z.string().min(1),
   supporting_quote: z.string().optional().default(""),
 });

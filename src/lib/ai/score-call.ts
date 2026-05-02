@@ -26,6 +26,8 @@ export interface ScoreCallInput {
   sellerName?: string | null;
   transcript: string;
   scriptContent?: string | null;
+  /** Calibration anchors (3 labeled real calls). See REFERENCE_CALL_SUMMARIES. */
+  referenceCalls?: string | null;
   presetOverrides?: string | null;
 }
 
