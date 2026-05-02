@@ -845,4 +845,184 @@ For each step, 10/7/5/3/0 anchors are listed. Use intermediate values as needed.
 - Rep sent (or tried to send) the agreement without verifying email access first → Approval cannot exceed 5.
 - Rep punted to a multi-day callback when the seller had given Trial Close 2 yes → Approval cannot exceed 5.
 
-<!-- INSERT-NEXT-SECTION-HERE -->
+---
+
+## PART 9 — RED FLAGS (AUTO-DEDUCTIONS)
+
+These specific behaviors automatically reduce the relevant step's score, regardless of how well the rest of the step went:
+
+### Carried over from V2
+- **Rep gives a price without going to hold first** → Anchor and/or Negotiation lose 2-3 points.
+- **Rep says "I'm not going to lowball you" / "I don't want to insult you"** → primes the seller to expect lowball; -2 to Anchor.
+- **Rep argues with the seller** ("Zillow is wrong," etc.) → -2 to whichever step the argument occurred in.
+- **Rep gives the seller homework** ("go check Zillow," "find your tax bill") → -2 to whichever step.
+- **Rep over-promises** ("we can definitely close in 7 days") → -2 to that step.
+- **Rep specifies dollar repair costs** ("the roof needs $15,000") → -2 to Negotiation.
+- **Rep doesn't pause after the anchor** → Anchor capped at 5 regardless of other quality.
+- **Rep accepts a "maybe" as a yes at any Trial Close** → that Trial Close capped at 5.
+- **Rep names a competitor by name** ("we're better than Opendoor") → -2 to that step.
+- **Rep talks more than the seller during the Motivation step** → Motivation capped at 5.
+- **Rep brings up the price first (before asking the seller's asking price)** → -3 to Asking Price.
+- **Rep skips Acknowledge step when handling an objection** (jumps straight to reframe or argument) → -2 to whichever step the objection arose in.
+- **Rep does NOT ask a clarifying question on "I need to think about it"** → cap that call's overall score 1 point lower.
+
+### NEW IN V3 — Discovery defects ⭐
+- **Rep ignored an emotional trigger word** — seller said "stressed," "overwhelmed," "frustrated," "tired," "fed up," etc. and rep didn't reflect or acknowledge it → **-2 to -3 to Motivation**.
+- **Rep rushed to property condition before WHY** — asked "how many bedrooms?" before "what's going on?" or before exploring the seller's situation → **-2 to Motivation**.
+- **Rep asked the asking price without first running discovery** — went straight to "how much do you want?" without exploring motivation → **Asking Price capped at 5**.
+- **Rep skipped Stage 5 (Future Pace)** — never asked any version of "what would it mean for you if this was off your plate?" → **-1 to Motivation** (no cap, just a deduction).
+
+### NEW IN V3 — Contract & Closing defects ⭐
+- **Rep sent (or tried to send) the agreement without verifying email access first** → **-3 to Approval**.
+- **Rep read out the entire agreement** instead of walking through key fields → **-2 to Approval**.
+- **Rep didn't confirm all decision-makers were on the call** before serious negotiation → **-2 to Negotiation/Approval**.
+- **Rep stated the prior decision-maker's answer** when a new party joined a follow-up call (instead of re-asking the question) → **-2 to that step**.
+
+### NEW IN V3 — Anchor & Negotiation defects ⭐
+- **Multiple competing anchor numbers in succession** ("$40-45k... actually $35-45 at the most") → **Anchor capped at 5**.
+- **Rep showed Zillow / comparable sales LIVE during the call** — pulled up a screen and walked through comp data instead of relying on back-office framing → **Negotiation capped at 5**.
+- **Rep skipped "what's the best you could do?"** in Negotiation — no seller counter pulled → **-3 to Negotiation**.
+
+### NEW IN V3 — Approval / Close defects ⭐
+- **Rep punted to a multi-day callback** after seller had already given Trial Close 2 yes (instead of closing in-call) → **-2 to Approval**.
+- **Rep called the seller by the wrong name** at any point in the call → **-1 to Rapport**.
+- **Background audio audible during a hold** (rep didn't mute) → **-1 to whichever Hold step**.
+
+---
+
+## PART 10 — REFERENCE EXAMPLES
+
+(Concrete examples of what each grade looks like for the steps reps most often misjudge.)
+
+### Discovery (Motivation) — 10/10 example ⭐ NEW IN V3 (WAM 5-stage)
+
+```
+Rep (Stage 1 — Clarify):
+  "Tell me what's going on with the property right now?"
+Seller:
+  "Just dealing with some repairs and tenants and stuff."
+
+Rep (Stage 2 — Dig):
+  "What kind of repairs are we talking about?"
+Seller:
+  "Roof leaking, plumbing issues, the heater's been out for two months."
+
+Rep (Stage 2 — Dig further):
+  "How long have those issues been going on?"
+Seller:
+  "The roof's been leaking for over a year. We've patched it twice."
+
+Rep (Stage 3 — Emotional Impact):
+  "Has dealing with that been stressful for you?"
+Seller:
+  "Honestly, yeah. We're just overwhelmed with it at this point."
+
+Rep (Emotional Words technique):
+  "Overwhelmed?"
+Seller:
+  "Yeah — between the calls from tenants, the cost of repairs, we don't live close enough to manage it..."
+
+Rep (Stage 4 — Timeline):
+  "What made you decide to start looking at selling now specifically?"
+Seller:
+  "We got a notice from the city about the heater, and we just don't have the energy for any of this anymore."
+
+Rep (Stage 5 — Future Pace):
+  "If you could get this off your plate, what would that mean for you?"
+Seller:
+  "Honestly? It would just be — a huge relief. We could focus on our own life again."
+```
+
+→ **Why 10:** Ran all 5 stages in order. Caught the emotional trigger word "overwhelmed" and reflected it back. Got the WHY (overwhelmed by remote management + city notice) AND the chronicity (a year+) AND the urgency (city notice forced the issue). Future-paced the relief. Listened more than talked.
+
+### Discovery (Motivation) — 3/10 example ⭐ NEW IN V3
+
+```
+Rep:
+  "Tell me about the house — how many bedrooms?"
+Seller:
+  "Three bedrooms, one bath."
+Rep:
+  "Square footage?"
+Seller:
+  "About 1,400."
+Rep:
+  "Year built?"
+Seller:
+  "1962."
+Rep:
+  "What's the condition like?"
+```
+
+→ **Why 3:** Asked only property questions. Never explored why the seller wants to sell. No emotional layer. The rep is doing data collection, not discovery. The rep has no leverage to anchor or negotiate later because the seller has no committed reason to accept the rep's number.
+
+### Anchor — 10/10 example
+Rep (downward inflection): "So when I was back there, I was peeking over one of the ladies' shoulders, and it looks like they're coming back somewhere between $135,000 and $145,000…"
+(5-second silence)
+Seller: "What?? That's way too low!"
+Rep (calm): "Oh, I'm not saying that's what we're going to pay you — that's just what I was seeing back there."
+Seller: "Oh, ok."
+
+→ **Why 10:** Range, not a single number. Framed as estimate FROM back-office (not from rep). Downward inflection. Held silence. Handled pushback without backpedaling on the framing — only on the literalness.
+
+### Anchor — 3/10 example
+Rep: "We can probably do around $140,000 for it."
+
+→ **Why 3:** Stated as the offer, not as a back-office estimate. No range. No pause. No framing. Direct from rep — kills authority.
+
+### Trial Close 1 — 10/10 example
+Rep: "So if we can get to a price that works for you AND works for our back office, is this something you want to move forward with today?"
+Seller: "Yes."
+
+→ **Why 10:** Conditional framing forces seller to commit on the IF. Got a clean verbal yes.
+
+### Trial Close 1 — 5/10 example
+Rep: "So would you sell to us if the price was right?"
+Seller: "I mean, maybe, depends on the number."
+
+→ **Why 5:** No conditional framing. Question too open. "Maybe" is a soft non-commit but rep didn't push for a real yes.
+
+### Objection Handling — 10/10 example (Acknowledge → Clarify → Reframe → Guide)
+Seller: "Your offer is too low."
+Rep (calm): "I hear you, and I appreciate you being straight with me. *(acknowledge)* What number were you hoping to get? *(clarify)* (Seller answers.) Got it. So as a cash deal it doesn't pencil out — but if there was a way to get you closer to that number without you fixing anything or paying any fees, would that be worth exploring? *(reframe + guide)*"
+
+→ **Why 10:** All four beats present. Acknowledge first. Clarified the actual gap. Reframed from "low offer" to "novation alternative." Guided with a yes/no question that opens the next step.
+
+### Objection Handling — 3/10 example
+Seller: "Your offer is too low."
+Rep: "Well, that's actually a fair number based on the market. Most investors would offer the same thing. Houses in this condition just don't sell for what you're thinking."
+
+→ **Why 3:** Skipped Acknowledge. Skipped Clarify. Argued the market with the seller. No reframe, no guide. Made the seller defend their position instead of moving forward.
+
+### "I'll think about it" — 10/10 example (certainty-transfer reframe) ⭐ NEW IN V3
+Seller: "Let me sleep on it."
+Rep (curious): "Yeah, that makes sense. *(acknowledge)* Just so I understand — what's the part you're not certain about? Is it the number, the timeline, the company, or the process? *(clarify)*"
+Seller: "Honestly, the number. I'm not sure I can take that little for it."
+Rep: "Got it. Walk me through what number would actually work, and let's see if we can get there."
+
+→ **Why 10:** Used the four-certainty diagnostic to force a specific answer instead of letting the seller deflect into "everything." Got the real objection (number gap), which now becomes a Negotiation conversation instead of a "I need time to think" deflection.
+
+### "I'll think about it" — 3/10 example
+Seller: "Let me sleep on it."
+Rep: "Sure thing, give me a call when you've thought it through."
+
+→ **Why 3:** Accepted the deflection. No clarifying question. No diagnosis of which certainty was missing. Deal is now likely dead — the seller has been given permission to disengage.
+
+---
+
+## REFERENCE CALL ARCHIVE
+
+Full sanitized transcripts with rubric scoring are saved separately:
+
+- **Call #01** — *Strong Rapport, Weak Structure* (V2 rubric: 40/100)
+  → `docs/training/reference-calls/call-01-strong-rapport-weak-structure.md`
+- **Call #02** — *New Rep, Mostly On Script, Off-Script Promises* (V2 rubric: 68/100)
+  → `docs/training/reference-calls/call-02-new-rep-mostly-script.md`
+- **Call #03** — *Same Rep, Off-Script, Deal Pending* (V2 rubric: 33/100)
+  → `docs/training/reference-calls/call-03-deal-walked-no-contract.md`
+
+Note: Reference calls were graded under V2's rubric. Under V3's tighter rubric (with WAM-aligned Motivation + cap rules + new Red Flags) most scores would adjust downward by 5-15 points. We'll re-score them after V3 ships if useful.
+
+---
+
+*End of knowledge base v3. Future versions: training video transcripts, edge-case scripts (no-show, hard hangup, multi-decision-maker calls, probate, pre-foreclosure, tired landlord), Spanish-language script variants, gold-standard reference call (90+/100) once a real one happens.*
