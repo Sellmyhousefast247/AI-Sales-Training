@@ -540,4 +540,197 @@ These rules apply across the whole call, regardless of which step is active.
 
 When stacking these in conversation, lead with the seller's biggest pain point first (e.g., if seller mentioned the house being a mess, lead with "as-is, no repairs"; if mentioned timeline, lead with "fast closing").
 
+---
+
+## PART 7 — DISCOVERY QUESTION LIBRARY (WAM 5-Stage Framework) ⭐ NEW IN V3
+
+The single most important step in any seller call is **Discovery** (Step 2 — Motivation in our framework). The 5-stage WAM framework below is the canonical method for running it.
+
+### The Discovery Goal
+
+Understand FOUR things from the seller:
+
+1. **The real problem** (what's actually going wrong, not just the surface complaint)
+2. **How long it's existed** (chronicity tells you whether it's a passing annoyance or accumulated pain)
+3. **How it affects them** (the emotional impact — this is where motivation lives)
+4. **Why they want it solved now** (urgency, the trigger that finally pushed them to fill out the form)
+
+Once you have all four, the seller has effectively sold themselves on solving the problem. Your job is now to be the easy path forward — not to convince them to sell.
+
+### The Core Rules of Discovery
+
+- **Don't rush to price.**
+- **DEFINITELY don't rush to property condition.**
+- **Stay in discovery as long as possible.** Once you find pain, stay there.
+- **Listen more than you talk.** 70%+ listening during this step.
+- **Catch emotional trigger words and reflect them back.** (See Emotional Words Technique in PART 2.)
+
+---
+
+### The 5-Stage Framework
+
+#### Stage 1 — Clarify the Situation
+Start broad. Let the seller frame it in their own words.
+
+Questions to use:
+- *"What's going on with the property right now?"*
+- *"What made you start exploring selling?"*
+- *"What kind of condition is the property in?"*
+- *"What's been happening exactly?"*
+
+#### Stage 2 — Dig into the Problem
+Once the seller mentions something, go deeper on it. Don't move on to the next topic — drill into what they just said.
+
+Questions to use:
+- *"What kind of repairs are we talking about?"*
+- *"How long has that been going on?"*
+- *"What's been happening with the tenants?"*
+- *"Can you give me an example?"*
+- *"Can you be more specific?"*
+- *"What do you mean by that?"*
+
+#### Stage 3 — Surface Emotional Impact
+**This is where real motivation appears.** Without this stage, you have facts but no fuel.
+
+Questions to use:
+- *"Has that situation been stressful for you?"*
+- *"Has dealing with that been affecting you personally?"*
+- *"What's been the most frustrating part of it?"*
+- *"How has that been impacting your day-to-day?"*
+
+When the seller answers with an emotional word ("stressed," "overwhelmed," "tired," "frustrated"), reflect it back: *"Overwhelmed?"* — almost always pulls more detail.
+
+#### Stage 4 — Understand Timeline
+Why now? What changed recently?
+
+Questions to use:
+- *"What prompted you to start looking at selling now?"*
+- *"What originally led you to decide to sell the property?"*
+- *"What changed recently that made you start exploring options?"*
+- *"What's driving the need to sell right now?"*
+- *"Is there a specific timeline you're working towards?"*
+
+#### Stage 5 — Future Pace the Outcome
+Help the seller imagine the relief of having this off their plate. They'll feel the value of solving it, which makes them more committed to your solution.
+
+Questions to use:
+- *"What would it mean for you if this house was taken care of?"*
+- *"If you could get this property off your plate, what would that do for you?"*
+- *"What would the ideal outcome look like for you?"*
+
+---
+
+### Supplementary Question Banks
+
+#### Powerful Clarifying Questions (use anywhere in Discovery)
+
+- *"What do you mean by that?"*
+- *"Can you be more specific?"*
+- *"What's been happening exactly?"*
+- *"Can you give me an example?"*
+- *"What kind of repairs are we talking about?"*
+
+#### Root-Cause Questions (when an issue has been ongoing)
+
+- *"What's causing that situation?"*
+- *"What hasn't worked so far in trying to deal with it?"*
+- *"What's stopping you from fixing it yourself?"*
+
+---
+
+### Example Discovery Flow (10/10 execution)
+
+```
+Rep (Stage 1 — Clarify):
+  "Tell me what's going on with the property right now?"
+
+Seller:
+  "Just dealing with some repairs and tenants and stuff."
+
+Rep (Stage 2 — Dig):
+  "What kind of repairs are we talking about?"
+
+Seller:
+  "The roof is leaking, plumbing issues, the heater's been out for two months."
+
+Rep (Stage 2 — Dig further):
+  "How long have those issues been going on?"
+
+Seller:
+  "The roof's been leaking for over a year. We've patched it twice."
+
+Rep (Stage 3 — Emotional Impact):
+  "Has dealing with that been stressful for you?"
+
+Seller:
+  "Honestly, yeah. We're just overwhelmed with it at this point."
+
+Rep (Emotional Words technique):
+  "Overwhelmed?"
+
+Seller:
+  "Yeah — between the calls from tenants, and the cost of repairs, and we just don't live close enough to manage it..."
+
+Rep (Stage 4 — Timeline):
+  "What made you decide to start looking at selling now specifically?"
+
+Seller:
+  "Well, we got a notice from the city about the heater, and we just don't have the energy for any of this anymore."
+
+Rep (Stage 5 — Future Pace):
+  "If you could get this off your plate, what would that mean for you?"
+
+Seller:
+  "Honestly? It would just be — a huge relief. We could focus on our own life again."
+```
+
+By the end of this exchange, the rep knows:
+- **Real problem:** roof leak, plumbing, heater out, tenant management, distance from property
+- **How long:** roof has been leaking over a year (chronic — accumulated pain)
+- **Emotional impact:** *overwhelmed*; tenants calling; out of energy
+- **Why now:** city notice on the heater forced the issue
+
+The rep has NOT yet asked: how many bedrooms, what's the square footage, what's the asking price. **Those come AFTER discovery is complete.**
+
+---
+
+### What NOT to Do (the anti-pattern)
+
+```
+Rep (rushed to property data):
+  "Tell me about the house — how many bedrooms?"
+
+Seller:
+  "Three bedrooms, one bath."
+
+Rep:
+  "Square footage?"
+
+Seller:
+  "About 1,400."
+
+Rep:
+  "Year built?"
+
+Seller:
+  "1962."
+
+Rep:
+  "What's the condition like?"
+```
+
+**Why this fails:** The rep is doing data collection, not discovery. The seller's emotional motivation is never surfaced. When this rep gets to the anchor, they have no leverage — the seller has no committed reason to accept their number.
+
+This is a **3/10 Motivation** under V3 rubric, regardless of whether the rep eventually got the asking price or property condition right.
+
+---
+
+### Key Principle (memorize)
+
+> *"You are not convincing someone to sell their house. You are helping them explain why they already want to solve the problem."*
+
+Once the seller clearly articulates: (1) what's going on, (2) how long it's been a problem, (3) how it's affecting them, and (4) why they want it solved now — **the decision to sell becomes inevitable.** The rep's job in this step is to facilitate that articulation, not to pitch the company.
+
+The pitch comes later. Discovery comes first.
+
 <!-- INSERT-NEXT-SECTION-HERE -->
