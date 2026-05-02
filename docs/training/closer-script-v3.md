@@ -209,4 +209,145 @@ Seller: "Great, thank you."
 
 Rep: (says goodbye)
 
+---
+
+## PART 2 — PRINCIPLES & FRAMEWORKS
+
+### Core Sales Philosophy
+
+**Sales = Problem Solving.** Objections aren't rejection — they're signals of one of these:
+
+- Lack of belief
+- Lack of clarity
+- Misaligned value
+- Negotiation positioning
+
+Treat every objection as an opportunity to move the deal forward.
+
+### The Discovery Principle ⭐ NEW
+
+> *"You are not convincing someone to sell their house. You are helping them explain why they already want to solve the problem."*
+
+Once the seller clearly explains:
+1. The real problem
+2. How long it has existed
+3. How it affects them
+4. Why they want it solved now
+
+…the decision to sell becomes inevitable. The rep's job in Discovery is to **facilitate that articulation**, not to pitch the company.
+
+**Corollary:**
+- **Don't rush to price.**
+- **Definitely don't rush to property condition.**
+- Stay in discovery as long as the seller has pain to articulate.
+
+### Discovery-First Mindset
+
+> *The deal is won in discovery, not negotiation.*
+> *The person who controls the conversation controls the deal.*
+
+- Talk less, ask more, slow down responses
+- During Discovery (Step 2 — Motivation), identify: pain (foreclosure, vacancy, repairs, landlord fatigue), urgency, financial constraints, decision makers
+- **Never negotiate price before establishing value.** Price objections happen when Value < Perceived Cost.
+- See **PART 7** for the full WAM 5-stage Discovery question library.
+
+### Top Closer Behavior (data-backed)
+
+What separates top performers:
+
+- **Pause 5x longer** than average reps
+- **Talk less** — listen 70%+ of the time during Discovery
+- **Ask more questions** instead of arguing
+- **Validate concerns** before responding
+- **Mirror seller language**
+- **Repeat emotional trigger words** (see Emotional Words Technique below)
+
+### Mirroring Technique
+
+When seller pushes back, repeat their key word as a soft question. This invites them to elaborate without confronting them.
+
+```
+Seller: "That's too low."
+Rep:    "Too low?"
+```
+
+Use sparingly (1-2x per call max). Overuse sounds parrot-like.
+
+### Emotional Words Technique ⭐ NEW
+
+When a seller uses **emotional language**, repeat the word back as a question. The seller almost always expands on the situation.
+
+```
+Seller: "I'm just overwhelmed with it."
+Rep:    "Overwhelmed?"
+```
+
+Optional pull: pair with "In what way?"
+```
+Rep:    "Overwhelmed? In what way though?"
+```
+
+**Emotional trigger words to listen for:**
+- stressed
+- frustrated
+- overwhelmed
+- tired
+- annoyed
+- exhausted
+- fed up
+- sick of
+- can't deal with anymore
+
+These words signal real motivation. Catch them and reflect them.
+
+### Transference of Certainty ⭐ NEW
+
+> *"Let me think about it and get back to you" doesn't mean the seller needs more time — it means the rep hasn't transferred enough certainty for them to move forward.*
+
+The rep's job in objection handling isn't to argue — it's to find the **specific gap in certainty** and fill it. There are usually four:
+1. Certainty about **the number** (is the offer fair?)
+2. Certainty about **the timeline** (will it actually close fast?)
+3. Certainty about **the company** (is this legit / will they ghost?)
+4. Certainty about **the process** (what do I have to do, sign, agree to?)
+
+When you hear "I need to think about it" or "let me get back to you," diagnose which of the four certainties is missing — then fill it specifically.
+
+### Complaint vs. Objection ⭐ NEW
+
+These are not the same thing.
+
+- An **objection** requires action (a real reason the seller can't move forward).
+- A **complaint** is venting — the seller wants to be heard, not corrected.
+
+**Don't give a complaint too much credit.** Acknowledge it briefly ("yeah, that's frustrating"), then move on. Trying to "overcome" a complaint turns venting into a fight, and that's how deals die.
+
+If you're unsure: treat it as a complaint first. Agree, validate, redirect. If it comes back a second time, then it's a real objection — handle it with the 4-beat framework.
+
+### Objection Handling Framework: Acknowledge → Clarify → Reframe → Guide
+
+Every objection response must follow this 4-beat pattern:
+
+1. **Acknowledge** — validate the concern. ("Totally fair." / "I hear you." / "Makes sense.")
+2. **Clarify** — ask a question that surfaces the real concern. ("What specifically are you thinking about?" / "Compared to what?")
+3. **Reframe** — shift the lens (price → net outcome, certainty → uncertainty, time → opportunity cost).
+4. **Guide** — propose the next step. ("Would that be worth considering?" / "Want me to see what we can do?")
+
+### Alternate Empathy Pattern: Feel / Felt / Found
+
+Use when the seller's objection is emotional (frustrated, hurt, fearful) rather than tactical:
+
+- **Feel** — empathize: "I hear what you're saying, and I get why you'd feel that way."
+- **Felt** — normalize: "A lot of folks I've worked with have felt the same."
+- **Found** — provide solution: "What they found is that..."
+
+### Core Philosophies (memorize)
+
+- The deal is won in discovery, not negotiation.
+- The person who controls the conversation controls the deal.
+- Value before price.
+- Price is determined by what buyers actually pay, not what sellers want.
+- Slow down to speed up.
+- You're not convincing them to sell — you're helping them explain why they want to solve the problem.
+- "Let me think about it" = certainty wasn't transferred.
+
 <!-- INSERT-NEXT-SECTION-HERE -->
