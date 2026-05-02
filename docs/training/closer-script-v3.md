@@ -350,4 +350,131 @@ Use when the seller's objection is emotional (frustrated, hurt, fearful) rather 
 - You're not convincing them to sell — you're helping them explain why they want to solve the problem.
 - "Let me think about it" = certainty wasn't transferred.
 
+---
+
+## PART 3 — COMMON OBJECTIONS & REBUTTALS
+
+(These are flexible templates aligned to our voice. Reps shouldn't read them verbatim — but the moves and structure should match. Every rebuttal follows Acknowledge → Clarify → Reframe → Guide.)
+
+### "Send me the offer in writing first"
+**Strategy:** Keep the seller on the phone; tie the number to the conversation.
+
+Seller: "Just email me the offer."
+Rep (calm, sincere): "Totally fair. *(acknowledge)* The thing is — the number won't be right until I've gone through the details with you on the phone. *(reframe)* Let me get us to a number you'd actually accept, and then send you the paperwork. Sound good? *(guide — upward inflection)*"
+
+### "I need to talk to my spouse"
+**Strategy:** Get them on the call now; don't let the deal go cold.
+
+Seller: "I need to run this by my husband/wife first."
+Rep (warm): "Of course. *(acknowledge)* Are they around right now? *(clarify)* If you can grab them — even for a couple minutes — we can answer everything on this call and save you the back-and-forth. *(reframe)* If not, what's the best time we can get them on? *(guide)*"
+
+### "I want to think about it" ⭐ REFRAMED IN V3
+**Strategy:** Surface the missing certainty. *"Let me think about it"* literally means *"you haven't given me enough certainty to move forward."* Diagnose which of the four certainties is missing.
+
+Seller: "Let me sleep on it."
+Rep (curious, not pushy): "Yeah, that makes sense. *(acknowledge)* Just so I understand — what's the part you're not certain about? Is it the number, the timeline, the company, or the process? *(clarify — upward inflection)*"
+
+**Why "not certain about" beats "thinking about":**
+- "Thinking about" lets the seller deflect ("oh, just everything")
+- "Not certain about" forces a specific answer (one of four options)
+- Once the rep knows the gap, they can fill it
+
+If the seller picks one of the four:
+- **Number** → "Walk me through what number would actually work, and let's see if we can get there."
+- **Timeline** → "What does your ideal timeline look like? We can usually flex on that."
+- **Company** → "Totally fair. Look us up at (website) — BBB, Google reviews, every closing through a title company."
+- **Process** → "Walk me through what feels unclear, and I'll explain it step by step."
+
+### "Your offer is too low"
+**Strategy:** Value Reframe → pivot to novation.
+
+Seller: "That's nowhere near what I want."
+Rep (firm, sincere): "I hear you, and I understand. *(acknowledge)* The number isn't going to work as a cash deal — and I appreciate you being straight with me. *(validate)* Let me ask — if there was a way to get you closer to your number without you fixing anything or paying any fees, would that be worth exploring? *(reframe + guide — upward inflection)*"
+
+### "I want more money"
+**Strategy:** Market Reality. Price is determined by what buyers actually pay, not what sellers want.
+
+Seller: "I need to get more for it."
+Rep (calm, transparent): "I get it. *(acknowledge)* Let me share how this works — investors all use the same math: the after-repair value, minus the cost to fix it, minus what we need to make. The number isn't us deciding what your house is worth — it's the market deciding. *(reframe)* That said, if your number's higher, the novation program may be a better fit. Want to hear how that works? *(guide)*"
+
+### "I'm getting other offers"
+**Strategy:** Credibility — most "higher offers" don't actually close.
+
+Seller: "I have other companies looking too."
+Rep (matter-of-fact, not threatened): "Smart — I'd do the same. *(acknowledge)* Most of those folks are running the same formula we are, so the numbers usually land in the same range. What's different is who actually closes — half of those guys back out the day before and re-trade you on price. *(reframe)* If I get you approved, the number doesn't move. *(guide)*"
+
+### "Another investor offered more"
+**Strategy:** Credibility Check (without confrontation). Expose weak offers.
+
+Seller: "Another investor said they'd give me more."
+Rep (curious, not threatened): "Oh nice — what number did they come back with? *(clarify)* Did they show you proof of funds? And — important question — are they buying themselves, or are they assigning the contract to someone else? *(clarify)* Because if they're assigning, they put it under contract first, then try to find a buyer at a higher price. If they can't, they back out. That's why a lot of those higher numbers don't actually close. *(reframe)* Want me to lock in a number that actually closes? *(guide)*"
+
+### "Why so low? How'd you get that number?"
+**Strategy:** Educate on the math. Transparency builds trust.
+
+Seller: "Why so low?"
+Rep (transparent): "Great question. *(acknowledge)* We work it backwards — what we can sell it for once it's fixed up, minus what it costs to fix, minus what we need to make. *(reframe)* Every company like ours uses the same math. That's also how I know whether novation could get you closer to your number, since that doesn't require us to fix it. *(guide)*"
+
+### "I'd rather list with an agent"
+**Strategy:** Certainty vs Uncertainty. Listings don't guarantee a sale.
+
+Seller: "I'm just going to list it."
+Rep (no pushback): "That's totally legitimate. *(acknowledge)* Just so you know what to expect — most agents will want some prep work and the timeline's 3–4 months. Then there's commissions, cleaning for showings, leaving for showings… and listings don't always sell. *(reframe)* If that fits your situation, go for it. Out of curiosity, what's making you lean toward listing? *(clarify + guide)*"
+
+### "I'll fix it up first"
+**Strategy:** Remove Friction. Repairs cost more than expected and delay everything.
+
+Seller: "I want to fix it up first to get more for it."
+Rep (calm, sincere): "Totally understand the thinking. *(acknowledge)* Most folks who go that route run into three things: the repairs almost always cost more than the estimate, the timeline doubles, and you're carrying utilities, taxes, and insurance the whole time. *(reframe)* The reason people sell to us as-is is to skip all of that. What's making you lean toward fixing it up first? *(clarify + guide)*"
+
+### "I'll sell it myself (FSBO)"
+**Strategy:** Probability + Difficulty. FSBO has ~10% success rate.
+
+Seller: "I'll just sell it myself."
+Rep (no judgment): "That's an option a lot of people consider. *(acknowledge)* Just so you know — FSBO has about a 10% success rate, mostly because finding qualified buyers and handling the legal paperwork is harder than people think. Investor buyers usually won't even look at FSBO listings because there's no MLS exposure. *(reframe)* If you want to test it for 30-60 days first and then circle back, totally fine. What's drawing you to do it yourself? *(clarify + guide)*"
+
+### "Call me back next week"
+**Strategy:** Find out what changes between now and then.
+
+Seller: "Call me Monday."
+Rep (curious): "Happy to. *(acknowledge)* Can I ask — what changes between now and then? Is there a piece of info you're waiting on, or is it more about timing? *(clarify — upward inflection)*"
+
+### "I'm not signing anything today"
+**Strategy:** Frame the cost of not locking in.
+
+Seller: "I won't sign today."
+Rep (no pressure): "Totally up to you. *(acknowledge)* The reason we sign today is to lock in the number — otherwise we re-run underwriting later and the price can move. *(reframe)* If that's not a fit, no hard feelings. *(guide)*"
+
+### "Zillow says my house is worth more"
+**Strategy:** Educate — Zillow doesn't see the property.
+
+Seller: "Zestimate says $X."
+Rep (calm, educational): "Zillow's a great starting point. *(acknowledge)* The issue is, Zillow doesn't see your house. It averages recent sales in your zip and assumes yours is in the same condition. *(reframe)* We actually look at your property and compare it to houses that sold in the same condition. That's why our number's usually different. *(guide implicit)*"
+
+### "I owe more than that on the mortgage"
+**Strategy:** Assess for short-sale or novation viability.
+
+Seller: "I owe more than that to the bank."
+Rep (sincere): "I appreciate you telling me. *(acknowledge)* That changes the conversation a little — let me ask a few questions to see if there's still a path. Do you know roughly what the loan balance is? *(clarify)*"
+
+### "Is this a scam?"
+**Strategy:** Transparency builds trust.
+
+Seller: "How do I know this is legit?"
+Rep (steady): "Totally fair to ask. *(acknowledge)* We're (company name), based in (city). Look us up — Better Business Bureau, Google reviews, all of it. Every closing goes through a licensed title company, so they hold the funds and verify everything. *(reframe)* You never pay us; we pay you at closing. *(guide implicit)*"
+
+---
+
+## PART 4 — VOICEMAIL SCRIPT
+
+(When seller doesn't answer.)
+
+Rep (warm, casual): "Hey (seller's name), this is (rep's name) calling about the property on (street name). Looks like you filled out our form online — had a couple quick questions about the house, hoping to get you a number. Give me a call back at (rep's number). Thanks!"
+
+**Rules:**
+- Keep it under 20 seconds.
+- Don't pitch on voicemail.
+- Don't promise a price or terms.
+- Just create a callback hook.
+
 <!-- INSERT-NEXT-SECTION-HERE -->
