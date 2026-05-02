@@ -41,6 +41,7 @@ export interface GhlMessage {
   dateAdded?: string;
   contactId?: string;
   conversationId?: string;
+  userId?: string;
   /** Twilio recording URL when type === 'TYPE_CALL'. */
   meta?: {
     call?: {
@@ -49,6 +50,20 @@ export interface GhlMessage {
       recordingUrl?: string;
     };
   };
+}
+
+export interface GhlContact {
+  id: string;
+  firstName?: string;
+  lastName?: string;
+  contactName?: string;
+  email?: string;
+  phone?: string;
+  address1?: string;
+  city?: string;
+  state?: string;
+  postalCode?: string;
+  source?: string;
 }
 
 export class GhlClient {
@@ -90,6 +105,64 @@ export class GhlClient {
     );
     if (!r.ok) return r;
     return { ok: true, location: r.data.location };
+  }
+
+  /**
+   * List conversations for this location, newest activity first.
+   * Caller can paginate via `startAfterDate` (ms timestamp).
+   */
+  async listConversations(opts: {
+    limit?: number;
+    startAfterDate?: number;
+  } = {}): Promise<
+    | { ok: true; conversations: GhlConversation[]; total: number }
+    | { ok: false; status: number; error: string }
+  > {
+    const params = new URLSearchParams({
+      locationId: this.locationId,
+      limit: String(opts.limit ?? 50),
+      sort: "desc",
+      sortBy: "last_message_date",
+    });
+    if (opts.startAfterDate) {
+      params.set("startAfterDate", String(opts.startAfterDate));
+    }
+    const r = await this.request<{
+      conversations: GhlConversation[];
+      total: number;
+    }>(`/conversations/search?${params.toString()}`);
+    if (!r.ok) return r;
+    return {
+      ok: true,
+      conversations: r.data.conversations ?? [],
+      total: r.data.total ?? 0,
+    };
+  }
+
+  /** List messages within one conversation. */
+  async listMessages(conversationId: string, opts: { limit?: number } = {}): Promise<
+    | { ok: true; messages: GhlMessage[] }
+    | { ok: false; status: number; error: string }
+  > {
+    const params = new URLSearchParams({ limit: String(opts.limit ?? 100) });
+    const r = await this.request<{ messages: { messages: GhlMessage[] } }>(
+      `/conversations/${conversationId}/messages?${params.toString()}`
+    );
+    if (!r.ok) return r;
+    // GHL nests: { messages: { messages: [...] } }
+    return { ok: true, messages: r.data.messages?.messages ?? [] };
+  }
+
+  /** Fetch a contact (used to label calls with seller name + phone). */
+  async getContact(contactId: string): Promise<
+    | { ok: true; contact: GhlContact }
+    | { ok: false; status: number; error: string }
+  > {
+    const r = await this.request<{ contact: GhlContact }>(
+      `/contacts/${contactId}`
+    );
+    if (!r.ok) return r;
+    return { ok: true, contact: r.data.contact };
   }
 }
 
