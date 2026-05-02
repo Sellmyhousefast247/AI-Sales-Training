@@ -733,4 +733,116 @@ Once the seller clearly articulates: (1) what's going on, (2) how long it's been
 
 The pitch comes later. Discovery comes first.
 
+---
+
+## PART 8 — SCORING SCALE & PER-STEP RUBRIC
+
+### Scoring Scale (0–10 integer per step)
+
+The AI may use any integer from 0 through 10. Anchors below describe what the key grades mean. Intermediates (1, 2, 4, 6, 8, 9) are allowed for in-between cases.
+
+```
+10 = Executed perfectly. Followed the script flow, tone, and framing.
+ 9 = Near-perfect. One micro-issue (tone slipped briefly, etc.).
+ 8 = Executed well. Minor misstep that didn't damage the call.
+ 7 = Solid execution with a meaningful gap or rough edge.
+ 6 = More than halfway there but a real piece is missing.
+ 5 = Attempted with partial success. Some critical pieces missing.
+ 4 = Attempted but mostly ineffective.
+ 3 = Attempted but counterproductive — could argue it didn't really happen.
+ 2 = Brief mention or empty gesture.
+ 1 = Token attempt; effectively skipped.
+ 0 = Not done. No evidence in the transcript.
+```
+
+**Final call score = sum of all 10 step scores. Out of 100.**
+
+### Per-Step Rubric
+
+For each step, 10/7/5/3/0 anchors are listed. Use intermediate values as needed.
+
+#### Rapport
+- 10 = Confirmed seller's name; warm intro; "good time?" check; seller engaged and reciprocating.
+- 7 = Most boxes checked; tone slightly cold or rushed.
+- 5 = Got name and intro but skipped one critical piece (permission / warmth / inflection).
+- 3 = Identified themselves but immediately pivoted to pitch.
+- 0 = No intro OR so cold the seller pushed back.
+
+#### Motivation ⭐ REWRITTEN IN V3 (WAM-aligned)
+- **10** = Ran the full WAM 5-stage framework: **Clarify → Dig → Emotional Impact → Timeline → Future Pace.** Caught and reflected at least one emotional trigger word (Emotional Words Technique). Listened more than talked. Got the real WHY (not just surface explanation). All four pieces surfaced: real problem + chronicity + emotional impact + why-now urgency.
+- **7** = Ran most stages but skipped one — typically Future Pacing OR Emotional Impact. Still got the WHY but didn't fully surface motivation. May not have caught an emotional trigger word.
+- **5** = Got partial info — usually property condition + timeline but skipped emotional impact entirely. The seller's "why now?" was assumed, not surfaced. Rep talked at least as much as the seller during this step.
+- **3** = Asked surface-level questions only — got facts (beds, baths, sqft) but never explored the seller's actual pain. Rushed to property condition before WHY was understood.
+- **0** = Skipped motivation; jumped straight to property condition or price.
+
+**Cap rule:** If the rep skipped Stage 3 (Emotional Impact) AND Stage 5 (Future Pace), Motivation cannot exceed 5 regardless of other quality.
+
+#### Asking Price
+- 10 = Asked seller's number AND walked through the "how companies like ours work" comparison.
+- 7 = Asked the price question; comparison was thin or skipped.
+- 5 = Asked for asking price but didn't get a number OR didn't educate.
+- 3 = Skirted the price question without asking it directly.
+- 0 = Never asked what the seller wanted.
+
+**Cap rule:** If the rep asked the asking price BEFORE running discovery (i.e., before exploring motivation/pain), Asking Price cannot exceed 5.
+
+#### Trial Close 1
+- 10 = Conditional framing ("if we can get to a price that works for you AND our back office") + verbal YES.
+- 7 = Asked move-forward but missed the dual-benefit framing.
+- 5 = Got a soft "I guess so" or "maybe" rather than a clean yes.
+- 3 = Asked something close but seller never confirmed forward intent.
+- 0 = Skipped — went straight to anchor or hold without trial close.
+
+#### First Hold
+- 10 = Real hold (10+ seconds); back-from-hold rapport rebuild before anchoring.
+- 7 = Did the hold but transition back was abrupt.
+- 5 = Brief hold; no real rapport rebuild on return.
+- 3 = "Hold" was instant — no actual pause.
+- 0 = No hold whatsoever.
+
+**Note:** Background audio audible during hold (rep didn't mute) → -1 to Hold score.
+
+#### Anchor
+- 10 = "They're coming back somewhere between $X" — downward inflection — 3+ second pause — handled pushback without backpedaling on the framing.
+- 7 = Anchored well but pause was short OR backpedal was weak.
+- 5 = Stated a number as the offer (not as a back-office estimate). OR no pause.
+- 3 = Mentioned a price but completely skipped the back-office framing AND silence.
+- 0 = Never anchored.
+
+**Cap rule:** Multiple competing anchor numbers in succession (e.g., "$40-45k... actually 35-45 at the most") → Anchor cannot exceed 5.
+
+#### Negotiation
+- 10 = Asked seller's best number with full value reset (as-is, no commission, no fees, closing costs, timeline). Pulled a number.
+- 7 = Asked but value reset was incomplete.
+- 5 = Asked for their best but skipped the value bullets.
+- 3 = Negotiation became back-and-forth on price without strategic moves.
+- 0 = Never gave seller a chance to counter — went straight to closing.
+
+**Cap rule:** Rep showed Zillow / comparable sales LIVE during the call → Negotiation cannot exceed 5 (off-script crutch that undercuts the back-office framing).
+
+#### Trial Close 2
+- 10 = Conditional framing ("if I can get this approved, you ready to move forward right?") + verbal YES.
+- 7 = Asked but yes was qualified ("I think so").
+- 5 = Asked something close but no real commitment surfaced.
+- 3 = Vague hint at move-forward without clear ask.
+- 0 = Skipped.
+
+#### Second Hold
+- 10 = Real hold; clear strategic decision (cash vs novation) on return.
+- 7 = Hold but cash-vs-novation choice was telegraphed before the hold.
+- 5 = Brief hold; came back without clear plan.
+- 3 = Perfunctory hold; wasted.
+- 0 = No second hold.
+
+#### Approval / Close
+- 10 = "Approved for our portfolio" framing with excitement; verified email access BEFORE sending agreement; clean walk-through of email/doc steps (without reading entire agreement); signature secured OR firm same-day sign window committed.
+- 7 = Excitement framing OK but doc walkthrough rushed, OR email access not verified before sending.
+- 5 = Got approval words out but seller hesitated and rep didn't recover well, OR rep punted to a multi-day callback instead of closing in-call.
+- 3 = Brief mention of approval; no signature, no firm next step.
+- 0 = No approval framing OR no signature/commitment.
+
+**Cap rules:**
+- Rep sent (or tried to send) the agreement without verifying email access first → Approval cannot exceed 5.
+- Rep punted to a multi-day callback when the seller had given Trial Close 2 yes → Approval cannot exceed 5.
+
 <!-- INSERT-NEXT-SECTION-HERE -->
