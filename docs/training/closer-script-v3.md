@@ -477,4 +477,67 @@ Rep (warm, casual): "Hey (seller's name), this is (rep's name) calling about the
 - Don't promise a price or terms.
 - Just create a callback hook.
 
+---
+
+## PART 5 — UNIVERSAL RULES
+
+These rules apply across the whole call, regardless of which step is active.
+
+### Conversation Control
+
+- **Confirm the seller's name before pitching anything.** Never lead with "I want to buy your house." Always lead with their name + a question.
+- **Use the seller's name multiple times** — at minimum once per step. Builds rapport, signals attentiveness.
+- **If they say they're driving, ask them to pull over.** A distracted seller is a no-deal seller.
+- ⭐ **All decision-makers on the call before serious negotiation.** Find out who else is on the deed / who has to sign, and either get them on now or schedule a callback when both are available. Negotiating with one and then having to re-negotiate with the other is how deals die.
+- ⭐ **When a second party joins late (or on a follow-up call), recap from the intro and re-ask the asking price.** Never state the first person's answer for them. The two parties are rarely on the same page — making them re-articulate confirms alignment OR surfaces the disagreement before it kills the deal.
+
+### Discovery Discipline ⭐ NEW
+
+- ⭐ **Don't rush to price.** Stay in discovery as long as the seller has pain to articulate.
+- ⭐ **Don't rush to property condition.** Surface the WHY before the WHAT. A rep asking about roof age before understanding why the seller wants to sell is checking boxes, not selling.
+- ⭐ **Listen for emotional trigger words.** Stressed, frustrated, overwhelmed, tired, annoyed, exhausted, fed up, sick of, can't deal with anymore. Catch them and reflect them back as a question (Emotional Words Technique — see PART 2).
+- See PART 7 for the full WAM 5-stage Discovery framework.
+
+### Tone & Pace
+
+- **Pause longer than feels comfortable.** Top closers pause 5x longer than average. After every key statement (anchor, trial close, big question), wait 3+ seconds before speaking again.
+- **Slow down your delivery.** Speaking faster signals nervousness. Speaking slowly signals authority and confidence.
+- **Always pause after the anchor.** First person to break silence loses leverage. After saying the number, shut up — even if it's awkward.
+
+### Asking vs. Telling
+
+- **Ask more than you tell.** During Discovery (Motivation step), the rep should be asking questions and listening 70%+ of the time.
+- **Mirror seller language.** When seller pushes back on a tactical thing, repeat their key word as a question. Seller: "Too low." Rep: "Too low?" Invites them to elaborate without confrontation. 1-2x per call max.
+- **Never argue with the seller.** When they push back, agree → validate → redirect. "I hear you. That doesn't work as a cash deal. Let's see what does."
+
+### Pricing Discipline
+
+- **Never give a price without going to hold first.** Numbers said off-the-cuff lose authority. Even when the rep knows the number, they go to hold and "come back" with it.
+- **Get a verbal yes at every Trial Close.** A "maybe," "we'll see," or anything non-yes counts as NO. Don't move forward without a clean yes.
+- **Never give specific dollar repair costs.** Don't say "the roof needs $15k." Talk in ranges or totals.
+- **Never give the seller homework.** "Go check Zillow," "find your tax bill," "talk to your accountant" — each one breaks the conversation and you lose them.
+
+### Contract & Closing Mechanics ⭐ NEW
+
+- ⭐ **Never send an agreement without verifying email access first.** Confirm the seller can open their inbox AND read the agreement BEFORE you send it. (If their email is broken — texting the contract for e-sign on the phone is the right move; punting to a later callback is not.)
+- ⭐ **Never read out the entire agreement.** Walk through the key fields (name, price, address) and let them read the rest themselves. Reading the full contract aloud kills momentum and invites line-by-line objections.
+
+---
+
+## PART 6 — VALUE STACKING BULLETS
+
+(Reinforce these throughout Negotiation, Trial Close 2, and Approval. Each one is a reason to choose us over listing.)
+
+- **No repairs needed** — sell as-is
+- **No commissions** — keep the full sale price
+- **No fees** — zero out-of-pocket
+- **We cover all closing costs** — no hidden surprises
+- **Fast closing** — typically 2–3 weeks
+- **Certainty** — no buyer financing, no appraisal, no chain of contingencies
+- **No showings** — no cleaning, no leaving the house, no strangers walking through
+- **Close on your timeline** — flexible move-out date
+- **Cash transaction** — funds are real and reserved at the time we sign
+
+When stacking these in conversation, lead with the seller's biggest pain point first (e.g., if seller mentioned the house being a mess, lead with "as-is, no repairs"; if mentioned timeline, lead with "fast closing").
+
 <!-- INSERT-NEXT-SECTION-HERE -->
