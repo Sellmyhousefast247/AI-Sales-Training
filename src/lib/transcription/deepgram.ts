@@ -20,6 +20,25 @@ export async function transcribeRecordingUrl(
   recordingUrl: string,
   opts: { repDirectionHint?: "inbound" | "outbound" | null } = {}
 ): Promise<TranscriptionResult> {
+  return deepgramListen({ kind: "url", url: recordingUrl });
+}
+
+/**
+ * Transcribe raw audio bytes (for recordings that live behind provider auth,
+ * e.g. GoHighLevel call recordings, which Deepgram cannot fetch by URL).
+ */
+export async function transcribeRecordingBuffer(
+  bytes: ArrayBuffer,
+  contentType = "audio/wav"
+): Promise<TranscriptionResult> {
+  return deepgramListen({ kind: "buffer", bytes, contentType });
+}
+
+type ListenInput =
+  | { kind: "url"; url: string }
+  | { kind: "buffer"; bytes: ArrayBuffer; contentType: string };
+
+async function deepgramListen(input: ListenInput): Promise<TranscriptionResult> {
   const apiKey = process.env.DEEPGRAM_API_KEY;
   if (!apiKey) throw new Error("DEEPGRAM_API_KEY is not configured");
 
@@ -35,9 +54,9 @@ export async function transcribeRecordingUrl(
     method: "POST",
     headers: {
       Authorization: `Token ${apiKey}`,
-      "Content-Type": "application/json",
+      "Content-Type": input.kind === "url" ? "application/json" : input.contentType,
     },
-    body: JSON.stringify({ url: recordingUrl }),
+    body: input.kind === "url" ? JSON.stringify({ url: input.url }) : input.bytes,
   });
 
   if (!resp.ok) {
