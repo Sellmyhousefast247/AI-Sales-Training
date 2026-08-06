@@ -30,8 +30,33 @@ export const gohighlevel: ProviderAdapter = {
     const p = payload as any;
     if (!p || typeof p !== "object") throw new Error("Empty payload");
 
-    const externalId =
-      pick(p, "call.id", "callId", "call_id", "message_id", "messageId", "id", "contact_id");
+    // Values sourced from workflow Custom Data may arrive as unresolved
+    // merge tags (e.g. "{{message.transcript}}") — treat those as absent.
+    const clean = (v: unknown): string | null => {
+      if (v == null) return null;
+      const s = String(v).trim();
+      if (!s || s.includes("{{")) return null;
+      return s;
+    };
+
+    const customCallId = clean(pick(p, "customData.call_id", "customData.callId"));
+    const contactId = pick(p, "contact_id", "contact.id");
+    const baseId =
+      customCallId ??
+      pick(p, "call.id", "callId", "call_id", "message_id", "messageId", "id");
+    const transcriptRaw = clean(
+      pick(p, "customData.transcript", "call.transcript", "transcript", "call_transcript")
+    );
+
+    // Fallback id: contact id alone would collide across repeat calls to the
+    // same contact, so salt it with a transcript fingerprint when available.
+    let externalId = baseId;
+    if (!externalId && contactId) {
+      const fp = transcriptRaw
+        ? `-${transcriptRaw.length}-${fingerprint(transcriptRaw)}`
+        : "";
+      externalId = `${contactId}${fp}`;
+    }
     if (!externalId) return [];
 
     const status = String(pick(p, "call.status", "call_status", "status") ?? "").toLowerCase();
@@ -70,9 +95,20 @@ export const gohighlevel: ProviderAdapter = {
         propertyAddress: pick(p, "full_address", "address1", "contact.address1") ?? null,
         leadSource: pick(p, "contact_source", "source", "contact.source") ?? null,
         recordingUrl:
-          pick(p, "call.recordingUrl", "call.recording_url", "call_recording_url", "recordingUrl", "recording_url") ?? null,
-        transcript: pick(p, "call.transcript", "transcript", "call_transcript") ?? null,
+          clean(
+            pick(p, "customData.recording_url", "call.recordingUrl", "call.recording_url", "call_recording_url", "recordingUrl", "recording_url")
+          ),
+        transcript: transcriptRaw,
       },
     ];
   },
 };
+
+/** Small stable non-crypto fingerprint for dedup salting. */
+function fingerprint(s: string): string {
+  let h = 0;
+  for (let i = 0; i < s.length; i++) {
+    h = (h * 31 + s.charCodeAt(i)) | 0;
+  }
+  return Math.abs(h).toString(36);
+}
