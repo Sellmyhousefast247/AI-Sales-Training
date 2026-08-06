@@ -46,12 +46,23 @@ describe("scorecardOutputSchema", () => {
     expect(() => scorecardOutputSchema.parse(validBase)).not.toThrow();
   });
 
-  it("rejects step scores other than 0/5/10", () => {
-    const bad = {
+  it("accepts any integer step score from 0-10", () => {
+    const mid = {
       ...validBase,
       step_scores: {
         ...validBase.step_scores,
         rapport: { score: 7, justification: "x", supporting_quote: "" },
+      },
+    };
+    expect(() => scorecardOutputSchema.parse(mid)).not.toThrow();
+  });
+
+  it("rejects step scores outside 0-10", () => {
+    const bad = {
+      ...validBase,
+      step_scores: {
+        ...validBase.step_scores,
+        rapport: { score: 11, justification: "x", supporting_quote: "" },
       },
     };
     expect(() => scorecardOutputSchema.parse(bad)).toThrow();
