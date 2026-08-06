@@ -4,7 +4,7 @@ import { createSupabaseServerClient, createSupabaseAdminClient } from "@/lib/sup
 import { getCurrentProfile } from "@/lib/queries";
 import { runScoringForCall } from "@/lib/scoring/run-scoring";
 
-export const maxDuration = 90;
+export const maxDuration = 300;
 
 const Body = z.object({
   call_id: z.string().uuid(),
