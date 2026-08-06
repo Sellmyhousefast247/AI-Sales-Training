@@ -1,6 +1,7 @@
 import { redirect } from "next/navigation";
 import { createSupabaseServerClient } from "@/lib/supabase/server";
 import { getCurrentProfile } from "@/lib/queries";
+import { IntegrationsPanel } from "./IntegrationsPanel";
 
 export default async function SettingsPage() {
   const profile = await getCurrentProfile();
@@ -8,9 +9,10 @@ export default async function SettingsPage() {
   if (profile.role !== "company_admin" && profile.role !== "super_admin") redirect("/dashboard");
 
   const supabase = await createSupabaseServerClient();
-  const [{ data: company }, { data: settings }] = await Promise.all([
+  const [{ data: company }, { data: settings }, { data: reps }] = await Promise.all([
     supabase.from("companies").select("name, slug, primary_color, timezone").eq("id", profile.company_id).single(),
     supabase.from("company_settings").select("*").eq("company_id", profile.company_id).maybeSingle(),
+    supabase.from("reps").select("id, full_name").eq("company_id", profile.company_id).eq("is_active", true).order("full_name"),
   ]);
 
   return (
@@ -38,6 +40,8 @@ export default async function SettingsPage() {
           <Pair k="Monthly token budget" v={settings?.monthly_token_budget ? String(settings.monthly_token_budget) : "Unlimited"} />
         </div>
       </section>
+
+      <IntegrationsPanel reps={reps ?? []} />
 
       <p className="text-xs text-ink-500">
         Edit UI ships in V2. For MVP, edit settings directly in Supabase or via API.
