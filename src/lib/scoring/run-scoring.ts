@@ -41,7 +41,12 @@ export async function runScoringForCall(
     return { ok: false, code: "not_found", message: "Call not found" };
   }
 
-  const transcript = (call as any).transcripts?.[0]?.content as string | undefined;
+  // transcripts.call_id is UNIQUE, so PostgREST may return the embed as a
+  // single object (one-to-one) or an array depending on schema detection.
+  const embedded = (call as any).transcripts;
+  const transcript = (Array.isArray(embedded) ? embedded[0]?.content : embedded?.content) as
+    | string
+    | undefined;
   if (!transcript) {
     return { ok: false, code: "no_transcript", message: "No transcript on this call" };
   }
