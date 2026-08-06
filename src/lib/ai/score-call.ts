@@ -55,7 +55,7 @@ export async function scoreCall(input: ScoreCallInput): Promise<ScoreCallResult>
   const attempt = async () => {
     const resp = await client().messages.create({
       model: MODEL,
-      max_tokens: 4096,
+      max_tokens: 16384,
       temperature: 0,
       // Prompt caching uses a SDK property the 0.32.x types don't yet
       // expose; cast keeps the runtime API call shape correct.
