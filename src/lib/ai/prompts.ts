@@ -156,6 +156,14 @@ ${args.presetOverrides ? `Company-specific scorecard adjustments:\n${args.preset
 ${args.transcript}
 """
 
+IMPORTANT — speaker labels: the REP/SELLER labels come from automatic
+speaker diarization and are sometimes SWAPPED. Before scoring, determine
+from context which speaker actually works for ${args.companyName} (the
+one making offers, referencing the company, following the acquisition
+script) and grade THAT person as the rep, regardless of the printed
+labels. If the labels appear swapped, say so in coaching_notes_manager
+and grade the true rep's performance.
+
 Score this call against the Road to a Deal framework. Use direct
 quotes from the transcript. Be specific. Coach like a real manager.`;
 }
