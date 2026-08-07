@@ -29,8 +29,12 @@ const OVERLAP_MS = 45 * 60 * 1000;
 const INITIAL_LOOKBACK_MS = 24 * 60 * 60 * 1000;
 const MAX_CONVERSATIONS_PER_RUN = 40;
 const MAX_MESSAGES_PER_CONVERSATION = 40;
-/** Cap heavy work (download+transcribe+score) per run; cron cadence catches up. */
-const MAX_NEW_CALLS_PER_RUN = 5;
+/**
+ * Cap heavy work (download+transcribe+score) per run; cron cadence catches up.
+ * Kept small so a full batch (~100s per scored call worst-case) stays inside
+ * the 300s function limit — a timeout mid-run would forfeit the whole batch.
+ */
+const MAX_NEW_CALLS_PER_RUN = 3;
 
 export interface PullSummary {
   ok: boolean;
@@ -135,7 +139,8 @@ async function downloadRecording(
     `/conversations/messages/${messageId}/locations/${opts.locationId}/recording`,
     CONVERSATIONS_VERSION
   );
-  if (resp.status === 404) return null;
+  // 404/422 = message has no recording (voicemail drops, unrecorded calls).
+  if (resp.status === 404 || resp.status === 422) return null;
   if (!resp.ok) {
     const text = await resp.text().catch(() => "");
     throw new Error(`GHL recording ${resp.status}: ${text.slice(0, 200)}`);
@@ -272,6 +277,8 @@ export async function pullGoHighLevelCalls(
   const contactCache = new Map<string, any>();
   const minDuration = cfg.min_duration_sec ?? 30;
   let processedHeavy = 0;
+  /** Oldest call deferred by the per-run cap — the cursor must not pass it. */
+  let oldestDeferredIso: string | null = null;
 
   for (const cand of candidates) {
     // Cheap dedup before any API-heavy work.
@@ -298,6 +305,7 @@ export async function pullGoHighLevelCalls(
     }
 
     if (processedHeavy >= MAX_NEW_CALLS_PER_RUN) {
+      if (!oldestDeferredIso && cand.dateAdded) oldestDeferredIso = cand.dateAdded;
       summary.skipped++;
       summary.details.push({
         external_id: cand.messageId,
@@ -312,11 +320,12 @@ export async function pullGoHighLevelCalls(
       // 3) Recording → Deepgram transcript.
       const rec = await downloadRecording(opts, cand.messageId);
       if (!rec) {
+        processedHeavy--; // a recording-less message shouldn't consume a heavy slot
         summary.skipped++;
         summary.details.push({
           external_id: cand.messageId,
           status: "skipped",
-          detail: "no recording on message (yet) — will retry within overlap window",
+          detail: "no recording on message",
         });
         continue;
       }
@@ -388,8 +397,9 @@ export async function pullGoHighLevelCalls(
     }
   }
 
-  // 5) Advance the cursor to now (overlap re-covers the tail next run).
-  const newCursor = new Date(now).toISOString();
+  // 5) Advance the cursor — but never past a call the per-run cap deferred,
+  // so the backlog drains across runs instead of being dropped.
+  const newCursor = oldestDeferredIso ?? new Date(now).toISOString();
   summary.cursor = newCursor;
   await admin
     .from("integrations")
