@@ -382,22 +382,39 @@ export async function pullGoHighLevelCalls(
     ? [opts.contactId]
     : [...new Set(candidates.map((c) => c.contactId).filter(Boolean) as string[])];
   let notesDenied = 0;
+  let notesFetched = 0;
+  let wavvNotes = 0;
+  const noteErrors: string[] = [];
   for (const cid of noteContactIds) {
     let notes: any[] = [];
     try {
       const data: any = await ghlJson(opts_, `/contacts/${cid}/notes`, CONTACTS_VERSION);
       notes = data?.notes ?? data ?? [];
     } catch (err: any) {
-      if (String(err?.message ?? "").includes(" 401") || String(err?.message ?? "").includes(" 403")) notesDenied++;
+      const msg = String(err?.message ?? "");
+      if (msg.includes(" 401") || msg.includes(" 403")) notesDenied++;
+      if (noteErrors.length < 3) noteErrors.push(msg.slice(0, 140));
       continue;
     }
-    if (!Array.isArray(notes)) continue;
+    if (!Array.isArray(notes)) {
+      if (noteErrors.length < 3) noteErrors.push(`unexpected notes shape: ${JSON.stringify(notes).slice(0, 120)}`);
+      continue;
+    }
+    notesFetched += notes.length;
     for (const note of notes) {
       const cand = noteToCandidate(cid, note);
       if (!cand) continue;
+      wavvNotes++;
       if (cand.dateAdded && new Date(cand.dateAdded).getTime() < candidateSinceMs) continue;
       candidates.push(cand);
     }
+  }
+  if (opts.contactId || noteErrors.length > 0) {
+    summary.details.push({
+      external_id: "(notes-debug)",
+      status: "skipped",
+      detail: `contacts=${noteContactIds.length} notes=${notesFetched} wavvNotes=${wavvNotes} errors=${noteErrors.join(" | ") || "none"}`,
+    });
   }
   if (notesDenied > 0) {
     summary.details.push({
