@@ -59,6 +59,12 @@ export async function runScoringForCall(
       .eq("is_current", true)
       .maybeSingle();
     if (existing) {
+      // Heal a stale in-flight status so retry jobs don't reclaim this call.
+      await admin
+        .from("calls")
+        .update({ scoring_status: "scored" })
+        .eq("id", callId)
+        .neq("scoring_status", "scored");
       return { ok: true, scorecard_id: existing.id, status: "scored", skipped: true };
     }
   }
