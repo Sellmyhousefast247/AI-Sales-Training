@@ -1,6 +1,6 @@
 import type { SupabaseClient } from "@supabase/supabase-js";
 import type { IntegrationRow, NormalizedInboundCall } from "./types";
-import { transcribeRecordingUrl, transcriptionConfigured } from "@/lib/transcription/deepgram";
+import { transcribeRecordingBuffer, transcriptionConfigured } from "@/lib/transcription/deepgram";
 import { runScoringForCall } from "@/lib/scoring/run-scoring";
 
 export interface IngestOutcome {
@@ -176,9 +176,17 @@ export async function processCallMedia(
 
     await admin.from("calls").update({ transcript_status: "transcribing" }).eq("id", callId);
     try {
-      const t = await transcribeRecordingUrl(call.recording_path, {
-        repDirectionHint: call.call_type === "inbound" ? "inbound" : "outbound",
-      });
+      // Download the audio ourselves and send raw bytes — some hosts (WAVV)
+      // serve chunked responses without Content-Length, which Deepgram's
+      // URL fetcher rejects with a 411.
+      const resp = await fetch(call.recording_path);
+      if (!resp.ok) throw new Error(`recording fetch failed: ${resp.status}`);
+      const bytes = await resp.arrayBuffer();
+      if (bytes.byteLength === 0) throw new Error("recording is empty");
+      const t = await transcribeRecordingBuffer(
+        bytes,
+        resp.headers.get("content-type") ?? "audio/mpeg"
+      );
       const wordCount = t.formatted.trim().split(/\s+/).length;
       await admin.from("transcripts").insert({
         call_id: callId,
