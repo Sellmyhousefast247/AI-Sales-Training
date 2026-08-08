@@ -188,8 +188,9 @@ interface CandidateCall {
  */
 export function noteToCandidate(contactId: string, note: any): CandidateCall | null {
   const body = String(pick(note, "body", "content", "note") ?? "");
-  const urlMatch = body.match(/https:\/\/file\.wavv\.com\/recordings\/[^\s"'<>)\]]+/i);
-  if (!urlMatch) return null;
+  const urlRaw = body.match(/(?:https?:\/\/)?file\.wavv\.com\/recordings\/[^\s"'<>)\]]+/i)?.[0];
+  if (!urlRaw) return null;
+  const url = urlRaw.startsWith("http") ? urlRaw : `https://${urlRaw}`;
   const wavvId = body.match(/\[\s*WAVV:\s*([0-9a-f-]{10,})\s*\]/i)?.[1] ?? null;
   const duration = body.match(/Duration:\s*(\d+)\s*seconds/i)?.[1];
   const noteId = pick(note, "id", "noteId");
@@ -204,7 +205,7 @@ export function noteToCandidate(contactId: string, note: any): CandidateCall | n
     dateAdded: toIso(pick(note, "dateAdded", "createdAt", "date_added")),
     durationSec: duration != null ? Number(duration) : null,
     userId: (pick(note, "userId", "user_id", "createdBy") ?? null) as string | null,
-    attachmentUrl: urlMatch[0],
+    attachmentUrl: url,
   };
 }
 
@@ -403,7 +404,14 @@ export async function pullGoHighLevelCalls(
     notesFetched += notes.length;
     for (const note of notes) {
       const cand = noteToCandidate(cid, note);
-      if (!cand) continue;
+      if (!cand) {
+        // Keep one raw sample of a WAVV-looking note that failed to parse.
+        const b = String(pick(note, "body", "content", "note") ?? "");
+        if (opts.contactId && /Duration:\s*\d+/i.test(b) && noteErrors.length < 3) {
+          noteErrors.push(`unparsed body sample: ${JSON.stringify(b.slice(0, 260))}`);
+        }
+        continue;
+      }
       wavvNotes++;
       if (cand.dateAdded && new Date(cand.dateAdded).getTime() < candidateSinceMs) continue;
       candidates.push(cand);
