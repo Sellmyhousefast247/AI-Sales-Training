@@ -405,10 +405,9 @@ export async function pullGoHighLevelCalls(
     for (const note of notes) {
       const cand = noteToCandidate(cid, note);
       if (!cand) {
-        // Keep one raw sample of a WAVV-looking note that failed to parse.
-        const b = String(pick(note, "body", "content", "note") ?? "");
-        if (opts.contactId && /Duration:\s*\d+/i.test(b) && noteErrors.length < 3) {
-          noteErrors.push(`unparsed body sample: ${JSON.stringify(b.slice(0, 260))}`);
+        // In targeted mode, sample raw unparsed notes so the format is visible.
+        if (opts.contactId && noteErrors.length < 3) {
+          noteErrors.push(`raw note: ${JSON.stringify(note).slice(0, 320)}`);
         }
         continue;
       }
