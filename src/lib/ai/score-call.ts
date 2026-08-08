@@ -76,7 +76,23 @@ export async function scoreCall(input: ScoreCallInput): Promise<ScoreCallResult>
       | undefined;
     if (!toolUse) throw new Error("No tool_use block in scoring response");
 
-    const parsed = scorecardOutputSchema.parse(toolUse.input);
+    // The model occasionally returns a nested field (e.g. step_scores) as a
+    // JSON-encoded string instead of an object — unwrap those before parsing.
+    const rawInput = toolUse.input as Record<string, unknown>;
+    const coerced: Record<string, unknown> = { ...rawInput };
+    for (const [k, v] of Object.entries(coerced)) {
+      if (typeof v === "string") {
+        const s = v.trim();
+        if (s.startsWith("{") || s.startsWith("[")) {
+          try {
+            coerced[k] = JSON.parse(s);
+          } catch {
+            /* leave as-is; schema will surface the real error */
+          }
+        }
+      }
+    }
+    const parsed = scorecardOutputSchema.parse(coerced);
 
     // Authoritative recompute of total + final from individual step scores.
     // The model is instructed to return them but we never trust derived math.
