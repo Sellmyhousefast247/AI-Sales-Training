@@ -27,11 +27,14 @@ async function run(req: NextRequest) {
   const batchSize = Math.min(Number(req.nextUrl.searchParams.get("batch") ?? 5), 20);
   const admin = createSupabaseAdminClient();
 
+  // Any call with a recording awaiting transcription, or a transcript
+  // awaiting scoring — imported or manually created alike.
   const { data: stuck } = await admin
     .from("calls")
     .select("id, transcript_status, scoring_status")
-    .not("imported_from", "is", null)
-    .or("transcript_status.in.(pending,failed),and(transcript_status.eq.ready,scoring_status.in.(pending,failed))")
+    .or(
+      "and(transcript_status.in.(pending,failed),recording_path.not.is.null),and(transcript_status.eq.ready,scoring_status.in.(pending,failed))"
+    )
     .order("created_at", { ascending: true })
     .limit(batchSize);
 
