@@ -23,11 +23,22 @@ const API_BASE = "https://services.leadconnectorhq.com";
 const CONVERSATIONS_VERSION = "2021-04-15";
 const CONTACTS_VERSION = "2021-07-28";
 
-/** How far behind the cursor each run re-scans (late-arriving recordings). */
-const OVERLAP_MS = 45 * 60 * 1000;
+/**
+ * How far behind the cursor each run re-scans. WAVV syncs dialer calls into
+ * GHL late — sometimes hours after the call, with a backdated timestamp — so
+ * this must be generous. Dedup on message id keeps re-scans idempotent.
+ */
+const OVERLAP_MS = 6 * 60 * 60 * 1000;
 /** First-run lookback when no cursor exists yet. */
 const INITIAL_LOOKBACK_MS = 24 * 60 * 60 * 1000;
-const MAX_CONVERSATIONS_PER_RUN = 40;
+/**
+ * Call messages are considered candidates within this window regardless of
+ * the conversation-scan cursor — catches backdated late-synced calls.
+ */
+const CANDIDATE_LOOKBACK_MS = 48 * 60 * 60 * 1000;
+/** Conversations page size + max pages (SMS blasts can flood the recent list). */
+const CONVERSATIONS_PAGE_SIZE = 100;
+const MAX_CONVERSATION_PAGES = 5;
 const MAX_MESSAGES_PER_CONVERSATION = 40;
 /**
  * Cap heavy work (download+transcribe+score) per run; cron cadence catches up.
@@ -198,7 +209,8 @@ export function messageToCandidate(conv: any, msg: any): CandidateCall | null {
 export async function pullGoHighLevelCalls(
   admin: SupabaseClient,
   integration: IntegrationRow,
-  env: { token?: string | null; locationId?: string | null } = {}
+  env: { token?: string | null; locationId?: string | null } = {},
+  opts: { lookbackHours?: number | null } = {}
 ): Promise<PullSummary> {
   const summary: PullSummary = {
     ok: true,
@@ -222,22 +234,50 @@ export async function pullGoHighLevelCalls(
     return { ...summary, ok: false, error: "DEEPGRAM_API_KEY is not configured" };
   }
 
-  const opts: GhlClientOpts = { token, locationId };
+  const opts_: GhlClientOpts = { token, locationId };
   const now = Date.now();
   const cursorIso: string | null = cfg.pull_cursor_iso ?? null;
-  const sinceMs = cursorIso
-    ? new Date(cursorIso).getTime() - OVERLAP_MS
-    : now - INITIAL_LOOKBACK_MS;
+  // Conversation-scan window: explicit lookback override (deep sweeps), else
+  // cursor minus a generous overlap for WAVV's late syncs.
+  const sinceMs = opts.lookbackHours
+    ? now - opts.lookbackHours * 60 * 60 * 1000
+    : cursorIso
+      ? new Date(cursorIso).getTime() - OVERLAP_MS
+      : now - INITIAL_LOOKBACK_MS;
+  // Candidate window: never narrower than 48h — backdated call messages must
+  // still qualify even when the scan cursor is fresh. Dedup keeps this cheap.
+  const candidateSinceMs = Math.min(sinceMs, now - CANDIDATE_LOOKBACK_MS);
 
-  // 1) Recently-active conversations, newest first.
-  const search: any = await ghlJson(
-    opts,
-    `/conversations/search?locationId=${encodeURIComponent(locationId)}&limit=${MAX_CONVERSATIONS_PER_RUN}&sortBy=last_message_date&sort=desc`,
-    CONVERSATIONS_VERSION
-  );
-  const conversations: any[] = search?.conversations ?? search?.data ?? [];
+  // 1) Recently-active conversations, newest first, paginated — SMS blasts
+  // can push a call conversation far down the recent list.
+  const conversations: any[] = [];
+  let startAfterDate: number | null = null;
+  for (let page = 0; page < MAX_CONVERSATION_PAGES; page++) {
+    const pageParam = startAfterDate ? `&startAfterDate=${startAfterDate}` : "";
+    let batch: any[] = [];
+    try {
+      const search: any = await ghlJson(
+        opts_,
+        `/conversations/search?locationId=${encodeURIComponent(locationId)}&limit=${CONVERSATIONS_PAGE_SIZE}&sortBy=last_message_date&sort=desc${pageParam}`,
+        CONVERSATIONS_VERSION
+      );
+      batch = search?.conversations ?? search?.data ?? [];
+    } catch (err) {
+      if (page === 0) throw err;
+      break; // pagination hiccup — work with what we have
+    }
+    if (batch.length === 0) break;
+    // Guard against a paging param the API ignores (same page repeating).
+    if (conversations.length > 0 && pick(batch[0], "id") === pick(conversations[conversations.length - batch.length] ?? {}, "id")) break;
+    conversations.push(...batch);
+    const oldest = toIso(pick(batch[batch.length - 1], "lastMessageDate", "last_message_date", "dateUpdated", "updatedAt"));
+    if (!oldest) break;
+    const oldestMs = new Date(oldest).getTime();
+    if (oldestMs < sinceMs) break; // covered the whole scan window
+    startAfterDate = oldestMs;
+  }
 
-  // 2) Collect candidate call messages newer than the scan window.
+  // 2) Collect candidate call messages inside the candidate window.
   const candidates: CandidateCall[] = [];
   for (const conv of conversations) {
     const lastMsgIso = toIso(
@@ -251,7 +291,7 @@ export async function pullGoHighLevelCalls(
     let msgs: any[] = [];
     try {
       const data: any = await ghlJson(
-        opts,
+        opts_,
         `/conversations/${convId}/messages?limit=${MAX_MESSAGES_PER_CONVERSATION}`,
         CONVERSATIONS_VERSION
       );
@@ -262,7 +302,7 @@ export async function pullGoHighLevelCalls(
     for (const msg of msgs) {
       const cand = messageToCandidate(conv, msg);
       if (!cand) continue;
-      if (cand.dateAdded && new Date(cand.dateAdded).getTime() < sinceMs) continue;
+      if (cand.dateAdded && new Date(cand.dateAdded).getTime() < candidateSinceMs) continue;
       candidates.push(cand);
     }
   }
@@ -318,7 +358,7 @@ export async function pullGoHighLevelCalls(
 
     try {
       // 3) Recording → Deepgram transcript.
-      const rec = await downloadRecording(opts, cand.messageId);
+      const rec = await downloadRecording(opts_, cand.messageId);
       if (!rec) {
         processedHeavy--; // a recording-less message shouldn't consume a heavy slot
         summary.skipped++;
@@ -344,11 +384,11 @@ export async function pullGoHighLevelCalls(
       const repHints: string[] = [];
       if (cand.userId) {
         repHints.push(cand.userId);
-        const email = await lookupUserEmail(opts, userEmailCache, cand.userId);
+        const email = await lookupUserEmail(opts_, userEmailCache, cand.userId);
         if (email) repHints.push(email);
       }
       const contact = cand.contactId
-        ? await lookupContact(opts, contactCache, cand.contactId)
+        ? await lookupContact(opts_, contactCache, cand.contactId)
         : null;
 
       const norm: NormalizedInboundCall = {
