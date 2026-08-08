@@ -162,15 +162,48 @@ async function downloadRecording(
 }
 
 interface CandidateCall {
+  /** External id used for dedup: GHL message id, or `wavv:<uuid>` for notes. */
   messageId: string;
+  source: "message" | "note";
   conversationId: string;
   contactId: string | null;
   direction: "inbound" | "outbound" | null;
   dateAdded: string | null;
   durationSec: number | null;
   userId: string | null;
-  /** Direct recording URL from message attachments (WAVV serves plain MP3s). */
+  /** Direct recording URL (WAVV serves plain public MP3s). */
   attachmentUrl: string | null;
+}
+
+/**
+ * WAVV's GHL integration logs each dialer call as a contact NOTE like:
+ *   [ WAVV: 019fd8c9-57a1-7557-98ab-68bc3dfafcc7 ]
+ *   To: (719) 310-7853 (5) / From: (720) 897-0691
+ *   Duration: 337 seconds / Disposition: Callback
+ *   https://file.wavv.com/recordings/<hash>/<phone>.mp3?download=true
+ * This is the ONLY place the recording URL appears — call messages carry no
+ * recording (the GHL recording endpoint 422s for WAVV calls).
+ */
+export function noteToCandidate(contactId: string, note: any): CandidateCall | null {
+  const body = String(pick(note, "body", "content", "note") ?? "");
+  const urlMatch = body.match(/https:\/\/file\.wavv\.com\/recordings\/[^\s"'<>)\]]+/i);
+  if (!urlMatch) return null;
+  const wavvId = body.match(/\[\s*WAVV:\s*([0-9a-f-]{10,})\s*\]/i)?.[1] ?? null;
+  const duration = body.match(/Duration:\s*(\d+)\s*seconds/i)?.[1];
+  const noteId = pick(note, "id", "noteId");
+  const externalId = wavvId ? `wavv:${wavvId}` : noteId ? `wavv-note:${noteId}` : null;
+  if (!externalId) return null;
+  return {
+    messageId: externalId,
+    source: "note",
+    conversationId: "",
+    contactId,
+    direction: "outbound", // WAVV notes come from the power dialer
+    dateAdded: toIso(pick(note, "dateAdded", "createdAt", "date_added")),
+    durationSec: duration != null ? Number(duration) : null,
+    userId: (pick(note, "userId", "user_id", "createdBy") ?? null) as string | null,
+    attachmentUrl: urlMatch[0],
+  };
 }
 
 /** WAVV dialer calls attach the recording as a plain MP3 URL on the message. */
@@ -207,6 +240,7 @@ export function messageToCandidate(conv: any, msg: any): CandidateCall | null {
 
   return {
     messageId: String(id),
+    source: "message",
     conversationId: String(pick(conv, "id", "conversationId") ?? ""),
     contactId: (pick(msg, "contactId") ?? pick(conv, "contactId") ?? null) as string | null,
     direction: dir === "inbound" ? "inbound" : dir === "outbound" ? "outbound" : null,
@@ -336,6 +370,39 @@ export async function pullGoHighLevelCalls(
       candidates.push(cand);
     }
   }
+
+  // 2b) WAVV logs each dialer call as a contact NOTE holding the only copy of
+  // the recording URL. Fetch notes for every contact that had call activity
+  // and turn WAVV notes into candidates. Notes are the primary source for
+  // dialer calls; the message path only succeeds for GHL-native telephony.
+  const noteContactIds = [
+    ...new Set(candidates.map((c) => c.contactId).filter(Boolean) as string[]),
+  ];
+  let notesDenied = 0;
+  for (const cid of noteContactIds) {
+    let notes: any[] = [];
+    try {
+      const data: any = await ghlJson(opts_, `/contacts/${cid}/notes`, CONTACTS_VERSION);
+      notes = data?.notes ?? data ?? [];
+    } catch (err: any) {
+      if (String(err?.message ?? "").includes(" 401") || String(err?.message ?? "").includes(" 403")) notesDenied++;
+      continue;
+    }
+    if (!Array.isArray(notes)) continue;
+    for (const note of notes) {
+      const cand = noteToCandidate(cid, note);
+      if (!cand) continue;
+      if (cand.dateAdded && new Date(cand.dateAdded).getTime() < candidateSinceMs) continue;
+      candidates.push(cand);
+    }
+  }
+  if (notesDenied > 0) {
+    summary.details.push({
+      external_id: "(scope)",
+      status: "failed",
+      detail: `notes API denied for ${notesDenied} contacts — add the View Contact Notes scope to the Private Integration`,
+    });
+  }
   summary.candidate_calls = candidates.length;
 
   // Oldest first so the cursor can advance monotonically.
@@ -391,7 +458,7 @@ export async function pullGoHighLevelCalls(
       // recording as a public MP3 attachment on the message; the GHL
       // recording endpoint (which 422s for WAVV calls) is the fallback.
       let rec = cand.attachmentUrl ? await downloadRecordingFromUrl(cand.attachmentUrl) : null;
-      if (!rec) rec = await downloadRecording(opts_, cand.messageId);
+      if (!rec && cand.source === "message") rec = await downloadRecording(opts_, cand.messageId);
       if (!rec) {
         processedHeavy--; // a recording-less message shouldn't consume a heavy slot
         summary.skipped++;
