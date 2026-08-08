@@ -29,6 +29,12 @@ async function run(req: NextRequest) {
 
   const admin = createSupabaseAdminClient();
 
+  // ?lookback_hours=N runs a deep sweep over the last N hours (nightly
+  // safety net for calls WAVV synced into GHL late with backdated times).
+  const lookbackRaw = Number(req.nextUrl.searchParams.get("lookback_hours"));
+  const lookbackHours =
+    Number.isFinite(lookbackRaw) && lookbackRaw > 0 ? Math.min(lookbackRaw, 168) : null;
+
   const { data: integrations } = await admin
     .from("integrations")
     .select("id, company_id, provider, webhook_token, config_json, is_active")
@@ -38,7 +44,7 @@ async function run(req: NextRequest) {
   const results = [];
   for (const row of (integrations ?? []) as IntegrationRow[]) {
     try {
-      const summary = await pullGoHighLevelCalls(admin, row);
+      const summary = await pullGoHighLevelCalls(admin, row, {}, { lookbackHours });
       results.push({ integration_id: row.id, ...summary });
     } catch (err: any) {
       results.push({ integration_id: row.id, ok: false, error: err?.message?.slice(0, 300) });
