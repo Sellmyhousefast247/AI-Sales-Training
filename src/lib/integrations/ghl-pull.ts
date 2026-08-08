@@ -169,6 +169,20 @@ interface CandidateCall {
   dateAdded: string | null;
   durationSec: number | null;
   userId: string | null;
+  /** Direct recording URL from message attachments (WAVV serves plain MP3s). */
+  attachmentUrl: string | null;
+}
+
+/** WAVV dialer calls attach the recording as a plain MP3 URL on the message. */
+function extractRecordingAttachment(msg: any): string | null {
+  const atts = pick(msg, "attachments");
+  if (!Array.isArray(atts)) return null;
+  for (const a of atts) {
+    const url = typeof a === "string" ? a : (pick(a, "url", "fileUrl", "href") as string | undefined);
+    if (!url || typeof url !== "string") continue;
+    if (/file\.wavv\.com|\.mp3|\.wav|\.m4a|\.ogg/i.test(url)) return url;
+  }
+  return null;
 }
 
 export function messageToCandidate(conv: any, msg: any): CandidateCall | null {
@@ -199,7 +213,23 @@ export function messageToCandidate(conv: any, msg: any): CandidateCall | null {
     dateAdded: toIso(pick(msg, "dateAdded", "createdAt", "date_added")),
     durationSec: Number.isFinite(duration as number) ? (duration as number) : null,
     userId: (pick(msg, "userId", "user_id") ?? null) as string | null,
+    attachmentUrl: extractRecordingAttachment(msg),
   };
+}
+
+/** Download a recording from a direct URL (no auth — WAVV MP3s are public). */
+async function downloadRecordingFromUrl(
+  url: string
+): Promise<{ bytes: ArrayBuffer; contentType: string } | null> {
+  try {
+    const resp = await fetch(url);
+    if (!resp.ok) return null;
+    const bytes = await resp.arrayBuffer();
+    if (bytes.byteLength === 0) return null;
+    return { bytes, contentType: resp.headers.get("content-type") ?? "audio/mpeg" };
+  } catch {
+    return null;
+  }
 }
 
 /**
@@ -357,8 +387,11 @@ export async function pullGoHighLevelCalls(
     processedHeavy++;
 
     try {
-      // 3) Recording → Deepgram transcript.
-      const rec = await downloadRecording(opts_, cand.messageId);
+      // 3) Recording → Deepgram transcript. WAVV dialer calls carry the
+      // recording as a public MP3 attachment on the message; the GHL
+      // recording endpoint (which 422s for WAVV calls) is the fallback.
+      let rec = cand.attachmentUrl ? await downloadRecordingFromUrl(cand.attachmentUrl) : null;
+      if (!rec) rec = await downloadRecording(opts_, cand.messageId);
       if (!rec) {
         processedHeavy--; // a recording-less message shouldn't consume a heavy slot
         summary.skipped++;
@@ -404,7 +437,7 @@ export async function pullGoHighLevelCalls(
         sellerPhone: pick(contact, "phone") ?? null,
         propertyAddress: pick(contact, "address1", "fullAddress") ?? null,
         leadSource: pick(contact, "source") ?? null,
-        recordingUrl: null, // recording lives behind GHL auth; transcript travels inline
+        recordingUrl: cand.attachmentUrl, // playable WAVV MP3 when present
         transcript: t.formatted,
       };
 

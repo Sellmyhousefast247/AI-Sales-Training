@@ -51,4 +51,24 @@ describe("messageToCandidate", () => {
     });
     expect(cand!.durationSec).toBe(61);
   });
+
+  it("extracts a WAVV MP3 recording attachment", () => {
+    const cand = messageToCandidate(conv, {
+      id: "msg_6",
+      messageType: "TYPE_CALL",
+      attachments: ["https://file.wavv.com/recordings/abc123/7193107853.mp3?download=true"],
+    });
+    expect(cand!.attachmentUrl).toBe(
+      "https://file.wavv.com/recordings/abc123/7193107853.mp3?download=true"
+    );
+  });
+
+  it("ignores non-audio attachments", () => {
+    const cand = messageToCandidate(conv, {
+      id: "msg_7",
+      messageType: "TYPE_CALL",
+      attachments: ["https://example.com/photo.jpg"],
+    });
+    expect(cand!.attachmentUrl).toBeNull();
+  });
 });
