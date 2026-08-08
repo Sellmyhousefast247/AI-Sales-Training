@@ -404,13 +404,7 @@ export async function pullGoHighLevelCalls(
     notesFetched += notes.length;
     for (const note of notes) {
       const cand = noteToCandidate(cid, note);
-      if (!cand) {
-        // In targeted mode, sample raw unparsed notes so the format is visible.
-        if (opts.contactId && noteErrors.length < 3) {
-          noteErrors.push(`raw note: ${JSON.stringify(note).slice(0, 320)}`);
-        }
-        continue;
-      }
+      if (!cand) continue;
       wavvNotes++;
       if (cand.dateAdded && new Date(cand.dateAdded).getTime() < candidateSinceMs) continue;
       candidates.push(cand);
