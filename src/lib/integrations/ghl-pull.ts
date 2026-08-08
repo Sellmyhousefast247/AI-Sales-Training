@@ -151,7 +151,9 @@ async function downloadRecording(
     CONVERSATIONS_VERSION
   );
   // 404/422 = message has no recording (voicemail drops, unrecorded calls).
-  if (resp.status === 404 || resp.status === 422) return null;
+  // 429 = rate-limited — treat as "not now" so the heavy slot is refunded
+  // and the call retries on a later run instead of counting as failed.
+  if (resp.status === 404 || resp.status === 422 || resp.status === 429) return null;
   if (!resp.ok) {
     const text = await resp.text().catch(() => "");
     throw new Error(`GHL recording ${resp.status}: ${text.slice(0, 200)}`);
@@ -405,9 +407,12 @@ export async function pullGoHighLevelCalls(
   }
   summary.candidate_calls = candidates.length;
 
-  // Oldest first so the cursor can advance monotonically.
-  candidates.sort((a, b) =>
-    String(a.dateAdded ?? "").localeCompare(String(b.dateAdded ?? ""))
+  // Note-sourced candidates first (they carry a guaranteed recording URL, so
+  // heavy slots are never wasted), then oldest-first within each source.
+  candidates.sort(
+    (a, b) =>
+      (a.source === "note" ? 0 : 1) - (b.source === "note" ? 0 : 1) ||
+      String(a.dateAdded ?? "").localeCompare(String(b.dateAdded ?? ""))
   );
 
   const userEmailCache = new Map<string, string | null>();
@@ -480,16 +485,19 @@ export async function pullGoHighLevelCalls(
         continue;
       }
 
-      // 4) Rep + contact enrichment.
-      const repHints: string[] = [];
-      if (cand.userId) {
-        repHints.push(cand.userId);
-        const email = await lookupUserEmail(opts_, userEmailCache, cand.userId);
-        if (email) repHints.push(email);
-      }
+      // 4) Rep + contact enrichment. WAVV notes often carry no usable userId,
+      // so the contact's assigned user (the dialing rep owns their leads) is
+      // the primary attribution signal.
       const contact = cand.contactId
         ? await lookupContact(opts_, contactCache, cand.contactId)
         : null;
+      const repHints: string[] = [];
+      for (const uid of [cand.userId, pick(contact, "assignedTo", "assigned_to", "assignedUserId")]) {
+        if (!uid) continue;
+        repHints.push(String(uid));
+        const email = await lookupUserEmail(opts_, userEmailCache, String(uid));
+        if (email) repHints.push(email);
+      }
 
       const norm: NormalizedInboundCall = {
         externalId: cand.messageId,
