@@ -276,7 +276,7 @@ export async function pullGoHighLevelCalls(
   admin: SupabaseClient,
   integration: IntegrationRow,
   env: { token?: string | null; locationId?: string | null } = {},
-  opts: { lookbackHours?: number | null } = {}
+  opts: { lookbackHours?: number | null; contactId?: string | null } = {}
 ): Promise<PullSummary> {
   const summary: PullSummary = {
     ok: true,
@@ -315,10 +315,11 @@ export async function pullGoHighLevelCalls(
   const candidateSinceMs = Math.min(sinceMs, now - CANDIDATE_LOOKBACK_MS);
 
   // 1) Recently-active conversations, newest first, paginated — SMS blasts
-  // can push a call conversation far down the recent list.
+  // can push a call conversation far down the recent list. Targeted mode
+  // (opts.contactId) skips the scan and reads that contact's notes directly.
   const conversations: any[] = [];
   let startAfterDate: number | null = null;
-  for (let page = 0; page < MAX_CONVERSATION_PAGES; page++) {
+  for (let page = 0; !opts.contactId && page < MAX_CONVERSATION_PAGES; page++) {
     const pageParam = startAfterDate ? `&startAfterDate=${startAfterDate}` : "";
     let batch: any[] = [];
     try {
@@ -377,9 +378,9 @@ export async function pullGoHighLevelCalls(
   // the recording URL. Fetch notes for every contact that had call activity
   // and turn WAVV notes into candidates. Notes are the primary source for
   // dialer calls; the message path only succeeds for GHL-native telephony.
-  const noteContactIds = [
-    ...new Set(candidates.map((c) => c.contactId).filter(Boolean) as string[]),
-  ];
+  const noteContactIds = opts.contactId
+    ? [opts.contactId]
+    : [...new Set(candidates.map((c) => c.contactId).filter(Boolean) as string[])];
   let notesDenied = 0;
   for (const cid of noteContactIds) {
     let notes: any[] = [];
@@ -546,16 +547,19 @@ export async function pullGoHighLevelCalls(
   }
 
   // 5) Advance the cursor — but never past a call the per-run cap deferred,
-  // so the backlog drains across runs instead of being dropped.
-  const newCursor = oldestDeferredIso ?? new Date(now).toISOString();
-  summary.cursor = newCursor;
-  await admin
-    .from("integrations")
-    .update({
-      config_json: { ...cfg, pull_cursor_iso: newCursor, ghl_location_id: locationId },
-      last_sync_at: newCursor,
-    })
-    .eq("id", integration.id);
+  // so the backlog drains across runs instead of being dropped. Targeted
+  // single-contact runs leave the cursor untouched.
+  if (!opts.contactId) {
+    const newCursor = oldestDeferredIso ?? new Date(now).toISOString();
+    summary.cursor = newCursor;
+    await admin
+      .from("integrations")
+      .update({
+        config_json: { ...cfg, pull_cursor_iso: newCursor, ghl_location_id: locationId },
+        last_sync_at: newCursor,
+      })
+      .eq("id", integration.id);
+  }
 
   return summary;
 }
