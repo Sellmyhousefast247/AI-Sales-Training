@@ -28,12 +28,18 @@ async function run(req: NextRequest) {
   const admin = createSupabaseAdminClient();
 
   // Any call with a recording awaiting transcription, or a transcript
-  // awaiting scoring — imported or manually created alike.
+  // awaiting scoring — imported or manually created alike. Also reclaims
+  // calls orphaned mid-flight ("transcribing"/"scoring" for >10 min after
+  // a crashed or timed-out run), which would otherwise be stuck forever.
+  const staleCutoff = new Date(Date.now() - 10 * 60 * 1000).toISOString();
   const { data: stuck } = await admin
     .from("calls")
     .select("id, transcript_status, scoring_status")
     .or(
-      "and(transcript_status.in.(pending,failed),recording_path.not.is.null),and(transcript_status.eq.ready,scoring_status.in.(pending,failed))"
+      `and(transcript_status.in.(pending,failed),recording_path.not.is.null),` +
+        `and(transcript_status.eq.transcribing,recording_path.not.is.null,updated_at.lt.${staleCutoff}),` +
+        `and(transcript_status.eq.ready,scoring_status.in.(pending,failed)),` +
+        `and(transcript_status.eq.ready,scoring_status.eq.scoring,updated_at.lt.${staleCutoff})`
     )
     .order("created_at", { ascending: true })
     .limit(batchSize);
