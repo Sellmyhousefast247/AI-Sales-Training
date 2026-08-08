@@ -34,6 +34,9 @@ async function run(req: NextRequest) {
   const lookbackRaw = Number(req.nextUrl.searchParams.get("lookback_hours"));
   const lookbackHours =
     Number.isFinite(lookbackRaw) && lookbackRaw > 0 ? Math.min(lookbackRaw, 168) : null;
+  // ?contact_id=X processes just that contact's WAVV call notes (targeted
+  // catch-up for a specific seller without waiting on the backlog queue).
+  const contactId = req.nextUrl.searchParams.get("contact_id");
 
   const { data: integrations } = await admin
     .from("integrations")
@@ -44,7 +47,7 @@ async function run(req: NextRequest) {
   const results = [];
   for (const row of (integrations ?? []) as IntegrationRow[]) {
     try {
-      const summary = await pullGoHighLevelCalls(admin, row, {}, { lookbackHours });
+      const summary = await pullGoHighLevelCalls(admin, row, {}, { lookbackHours, contactId });
       results.push({ integration_id: row.id, ...summary });
     } catch (err: any) {
       results.push({ integration_id: row.id, ok: false, error: err?.message?.slice(0, 300) });
