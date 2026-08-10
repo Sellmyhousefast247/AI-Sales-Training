@@ -5,7 +5,8 @@ import { getCurrentProfile } from "@/lib/queries";
 import { TierBadge } from "@/components/TierBadge";
 import { ScoreTrendChart } from "@/components/ScoreTrendChart";
 import { formatDateTime, formatScore } from "@/lib/utils";
-import { STEP_LABELS, type RoadStep, type Tier } from "@/lib/types";
+import { ROAD_TO_DEAL_STEPS, STEP_LABELS, STEP_NUMBER, type RoadStep, type Tier } from "@/lib/types";
+import { StepCell, StepLegend, stepMap, stepStatus } from "@/components/StepChips";
 
 export default async function RepProfilePage({ params }: { params: Promise<{ id: string }> }) {
   const { id } = await params;
@@ -31,8 +32,8 @@ export default async function RepProfilePage({ params }: { params: Promise<{ id:
     supabase
       .from("calls")
       .select(`
-        id, call_datetime, call_type, deal_outcome,
-        scorecards!scorecards_call_id_fkey (final_score, average_score, is_current)
+        id, call_datetime, call_type, deal_outcome, seller_name,
+        scorecards!scorecards_call_id_fkey (final_score, average_score, is_current, step_scores (step, score))
       `)
       .eq("rep_id", id)
       .order("call_datetime", { ascending: false })
@@ -110,6 +111,83 @@ export default async function RepProfilePage({ params }: { params: Promise<{ id:
           <div className="mt-1 text-lg font-semibold">
             {weakest ? `${STEP_LABELS[weakest.step]} · ${formatScore(weakest.avg)}` : "—"}
           </div>
+        </div>
+      </section>
+
+      <section className="rounded-lg border border-ink-200 bg-white p-5">
+        <div className="mb-1 text-sm font-semibold">Road to a Deal — call by call</div>
+        <div className="mb-3"><StepLegend /></div>
+        {(() => {
+          const scoredCalls = (recentCalls ?? [])
+            .map((c: any) => {
+              const s = (c.scorecards ?? []).find((x: any) => x.is_current);
+              return s ? { call: c, steps: stepMap(s.step_scores), score: Number(s.final_score ?? s.average_score) } : null;
+            })
+            .filter(Boolean) as Array<{ call: any; steps: Partial<Record<RoadStep, number>>; score: number }>;
+          if (scoredCalls.length === 0) {
+            return <div className="text-sm text-ink-500">No scored calls yet.</div>;
+          }
+          const hitRate = (k: RoadStep) => {
+            const scores = scoredCalls.map((r) => r.steps[k]).filter((v) => v != null) as number[];
+            if (scores.length === 0) return null;
+            return Math.round((scores.filter((v) => stepStatus(v) === "completed").length / scores.length) * 100);
+          };
+          return (
+            <div className="overflow-x-auto">
+              <table className="w-full text-sm">
+                <thead>
+                  <tr className="text-left text-xs uppercase tracking-wide text-ink-500">
+                    <th className="py-2 pr-3">Call</th>
+                    {ROAD_TO_DEAL_STEPS.map((k) => (
+                      <th key={k} className="px-1 py-2 text-center" title={STEP_LABELS[k]}>
+                        {STEP_NUMBER[k]}
+                      </th>
+                    ))}
+                    <th className="py-2 pl-3 text-right">Score</th>
+                  </tr>
+                </thead>
+                <tbody className="divide-y divide-ink-100">
+                  {scoredCalls.map(({ call, steps, score }) => (
+                    <tr key={call.id} className="hover:bg-ink-50">
+                      <td className="whitespace-nowrap py-2 pr-3">
+                        <Link href={`/calls/${call.id}`} className="hover:underline">
+                          {call.seller_name ?? formatDateTime(call.call_datetime)}
+                        </Link>
+                        <span className="ml-2 text-xs text-ink-400">
+                          {new Date(call.call_datetime).toLocaleDateString(undefined, { month: "short", day: "numeric" })}
+                        </span>
+                      </td>
+                      {ROAD_TO_DEAL_STEPS.map((k) => (
+                        <td key={k} className="px-1 py-2 text-center" title={STEP_LABELS[k]}>
+                          <StepCell score={steps[k]} />
+                        </td>
+                      ))}
+                      <td className="py-2 pl-3 text-right font-mono tabular-nums">{formatScore(score)}</td>
+                    </tr>
+                  ))}
+                  <tr className="bg-ink-50 text-xs">
+                    <td className="py-2 pr-3 font-semibold text-ink-500">Hit rate</td>
+                    {ROAD_TO_DEAL_STEPS.map((k) => {
+                      const pct = hitRate(k);
+                      return (
+                        <td key={k} className="px-1 py-2 text-center font-mono tabular-nums" title={STEP_LABELS[k]}>
+                          {pct == null ? "—" : (
+                            <span className={pct >= 70 ? "text-emerald-600" : pct >= 40 ? "text-amber-600" : "text-red-500"}>
+                              {pct}%
+                            </span>
+                          )}
+                        </td>
+                      );
+                    })}
+                    <td />
+                  </tr>
+                </tbody>
+              </table>
+            </div>
+          );
+        })()}
+        <div className="mt-2 text-xs text-ink-400">
+          Steps: {ROAD_TO_DEAL_STEPS.map((k) => `${STEP_NUMBER[k]} ${STEP_LABELS[k].split(" (")[0]}`).join(" · ")}
         </div>
       </section>
 
