@@ -1,6 +1,7 @@
 import type { SupabaseClient } from "@supabase/supabase-js";
 import type { IntegrationRow, NormalizedInboundCall } from "./types";
 import { ingestNormalizedCall, processCallMedia } from "./ingest";
+import { fetchWavvRecording, wavvConfigured } from "./wavv";
 import { transcribeRecordingBuffer, transcriptionConfigured } from "@/lib/transcription/deepgram";
 
 /**
@@ -189,6 +190,8 @@ interface CandidateCall {
   userId: string | null;
   /** Direct recording URL (WAVV serves plain public MP3s). */
   attachmentUrl: string | null;
+  /** WAVV call uuid from the note marker — recording fetchable via WAVV API. */
+  wavvUuid: string | null;
 }
 
 /**
@@ -203,9 +206,11 @@ interface CandidateCall {
 export function noteToCandidate(contactId: string, note: any): CandidateCall | null {
   const body = String(pick(note, "body", "content", "note") ?? "");
   const urlRaw = body.match(/(?:https?:\/\/)?file\.wavv\.com\/recordings\/[^\s"'<>)\]]+/i)?.[0];
-  if (!urlRaw) return null;
-  const url = urlRaw.startsWith("http") ? urlRaw : `https://${urlRaw}`;
+  const url = urlRaw ? (urlRaw.startsWith("http") ? urlRaw : `https://${urlRaw}`) : null;
   const wavvId = body.match(/\[\s*WAVV:\s*([0-9a-f-]{10,})\s*\]/i)?.[1] ?? null;
+  // Aug-7+ note vintage dropped the MP3 URL — a WAVV uuid alone still
+  // qualifies, because the recording is fetchable via the WAVV API.
+  if (!url && !wavvId) return null;
   const duration = body.match(/Duration:\s*(\d+)\s*seconds/i)?.[1];
   const noteId = pick(note, "id", "noteId");
   const externalId = wavvId ? `wavv:${wavvId}` : noteId ? `wavv-note:${noteId}` : null;
@@ -220,6 +225,7 @@ export function noteToCandidate(contactId: string, note: any): CandidateCall | n
     durationSec: duration != null ? Number(duration) : null,
     userId: (pick(note, "userId", "user_id", "createdBy") ?? null) as string | null,
     attachmentUrl: url,
+    wavvUuid: wavvId,
   };
 }
 
@@ -265,6 +271,7 @@ export function messageToCandidate(conv: any, msg: any): CandidateCall | null {
     durationSec: Number.isFinite(duration as number) ? (duration as number) : null,
     userId: (pick(msg, "userId", "user_id") ?? null) as string | null,
     attachmentUrl: extractRecordingAttachment(msg),
+    wavvUuid: null,
   };
 }
 
@@ -529,6 +536,9 @@ export async function pullGoHighLevelCalls(
       // recording as a public MP3 attachment on the message; the GHL
       // recording endpoint (which 422s for WAVV calls) is the fallback.
       let rec = cand.attachmentUrl ? await downloadRecordingFromUrl(cand.attachmentUrl) : null;
+      // Aug-7+ WAVV notes carry no MP3 URL — the WAVV API is the recording
+      // source of record for dialer calls now.
+      if (!rec && cand.wavvUuid && wavvConfigured()) rec = await fetchWavvRecording(cand.wavvUuid);
       if (!rec && cand.source === "message") rec = await downloadRecording(opts_, cand.messageId);
       if (!rec) {
         processedHeavy--; // a recording-less message shouldn't consume a heavy slot
@@ -536,7 +546,10 @@ export async function pullGoHighLevelCalls(
         summary.details.push({
           external_id: cand.messageId,
           status: "skipped",
-          detail: "no recording on message",
+          detail:
+            cand.wavvUuid && !wavvConfigured()
+              ? "WAVV note has no recording URL and WAVV_API_KEY is not set"
+              : "no recording available",
         });
         continue;
       }

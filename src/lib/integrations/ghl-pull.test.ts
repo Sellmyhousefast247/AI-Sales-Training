@@ -96,10 +96,26 @@ describe("noteToCandidate", () => {
     expect(cand!.dateAdded).toBe("2026-08-07T21:12:00.000Z");
   });
 
-  it("ignores notes without a WAVV recording link", () => {
+  it("ignores notes with neither a WAVV marker nor a recording link", () => {
     expect(
       noteToCandidate("contact_1", { id: "n2", body: "Summary: talked to seller, follow up Friday." })
     ).toBeNull();
+  });
+
+  it("accepts an Aug-7+ vintage WAVV note with no recording URL", () => {
+    const cand = noteToCandidate("contact_1", {
+      id: "note_9",
+      dateAdded: "2026-08-10T15:00:00.000Z",
+      body:
+        "[ WAVV: 019fe000-1111-7000-8000-abcdefabcdef ]\n" +
+        "To: (210) 555-0142 (2)\nFrom: (720) 897-0691\n" +
+        "Duration: 512 seconds\nDisposition: Callback\n",
+    });
+    expect(cand).not.toBeNull();
+    expect(cand!.messageId).toBe("wavv:019fe000-1111-7000-8000-abcdefabcdef");
+    expect(cand!.wavvUuid).toBe("019fe000-1111-7000-8000-abcdefabcdef");
+    expect(cand!.attachmentUrl).toBeNull();
+    expect(cand!.durationSec).toBe(512);
   });
 
   it("falls back to the note id when the WAVV uuid is missing", () => {
