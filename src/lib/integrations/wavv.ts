@@ -122,17 +122,29 @@ export async function wavvProbe(uuid?: string | null): Promise<
     ? [`/calls/${uuid}`, `/calls/${uuid}/recording`]
     : [`/calls?limit=3`];
 
+  // Auth-style matrix: docs say Bearer, but a 401 with a known-good key means
+  // it's worth confirming the server doesn't expect a different header.
+  const styles: Array<[string, Record<string, string>]> = [
+    ["bearer", { Authorization: `Bearer ${key}` }],
+    ["x-api-key", { "X-Api-Key": key }],
+    ["api-key-hdr", { "Api-Key": key }],
+    ["raw-auth", { Authorization: key }],
+    ["basic", { Authorization: `Basic ${Buffer.from(`${key}:`).toString("base64")}` }],
+  ];
+
   const out: Array<{ path: string; status: number | string; snippet: string }> = [];
   for (const path of paths) {
-    const resp = await wavvJson(path);
-    if (!resp) {
-      out.push({ path, status: "network-error", snippet: "" });
-      continue;
+    for (const [styleName, headers] of styles) {
+      try {
+        const resp = await fetch(`${BASE}${path}`, {
+          headers: { ...headers, Accept: "application/json" },
+        });
+        const text = (await resp.text()).slice(0, 300).replace(new RegExp(key, "g"), "***");
+        out.push({ path: `${path} [${styleName}] keyLen=${key.length}`, status: resp.status, snippet: text });
+      } catch {
+        out.push({ path: `${path} [${styleName}]`, status: "network-error", snippet: "" });
+      }
     }
-    const snippet = JSON.stringify(resp.data ?? null)
-      .slice(0, 500)
-      .replace(new RegExp(key, "g"), "***");
-    out.push({ path, status: resp.status, snippet });
   }
   return out;
 }
