@@ -542,6 +542,53 @@ export async function pullGoHighLevelCalls(
       if (!rec && cand.source === "message") rec = await downloadRecording(opts_, cand.messageId);
       if (!rec) {
         processedHeavy--; // a recording-less message shouldn't consume a heavy slot
+
+        // A WAVV call with a known qualifying duration is still a REAL call —
+        // create it now (visible in the app, correct rep/time/duration) with
+        // recording_path "wavv:<uuid>" so processCallMedia can transcribe and
+        // score it automatically once the WAVV API becomes reachable.
+        if (cand.wavvUuid && cand.durationSec != null && cand.durationSec >= minDuration) {
+          const contact = cand.contactId
+            ? await lookupContact(opts_, contactCache, cand.contactId)
+            : null;
+          const repHints: string[] = [];
+          for (const uid of [cand.userId, pick(contact, "assignedTo", "assigned_to", "assignedUserId")]) {
+            if (!uid) continue;
+            repHints.push(String(uid));
+            const email = await lookupUserEmail(opts_, userEmailCache, String(uid));
+            if (email) repHints.push(email);
+          }
+          const norm: NormalizedInboundCall = {
+            externalId: cand.messageId,
+            callDatetime: cand.dateAdded,
+            direction: cand.direction,
+            durationSec: cand.durationSec,
+            repHints,
+            sellerName:
+              pick(contact, "name", "fullName") ??
+              [pick(contact, "firstName"), pick(contact, "lastName")].filter(Boolean).join(" ") ??
+              null,
+            sellerPhone: pick(contact, "phone") ?? null,
+            propertyAddress: pick(contact, "address1", "fullAddress") ?? null,
+            leadSource: pick(contact, "source") ?? null,
+            recordingUrl: `wavv:${cand.wavvUuid}`,
+            transcript: null,
+          };
+          const outcome = await ingestNormalizedCall(admin, integration, norm);
+          if (outcome.status === "created") summary.created++;
+          else if (outcome.status === "duplicate") summary.duplicates++;
+          else summary.skipped++;
+          summary.details.push({
+            external_id: cand.messageId,
+            status: outcome.status,
+            detail:
+              outcome.status === "created"
+                ? "created awaiting WAVV audio (will transcribe+score when API access works)"
+                : outcome.detail,
+          });
+          continue;
+        }
+
         summary.skipped++;
         summary.details.push({
           external_id: cand.messageId,

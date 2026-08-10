@@ -2,6 +2,7 @@ import type { SupabaseClient } from "@supabase/supabase-js";
 import type { IntegrationRow, NormalizedInboundCall } from "./types";
 import { transcribeRecordingBuffer, transcriptionConfigured } from "@/lib/transcription/deepgram";
 import { runScoringForCall } from "@/lib/scoring/run-scoring";
+import { fetchWavvRecording, wavvConfigured } from "./wavv";
 
 export interface IngestOutcome {
   externalId: string;
@@ -179,14 +180,23 @@ export async function processCallMedia(
       // Download the audio ourselves and send raw bytes — some hosts (WAVV)
       // serve chunked responses without Content-Length, which Deepgram's
       // URL fetcher rejects with a 411.
-      const resp = await fetch(call.recording_path);
-      if (!resp.ok) throw new Error(`recording fetch failed: ${resp.status}`);
-      const bytes = await resp.arrayBuffer();
+      let bytes: ArrayBuffer;
+      let contentType = "audio/mpeg";
+      if (call.recording_path.startsWith("wavv:")) {
+        // Calls created "awaiting WAVV audio" — fetch via the WAVV API.
+        if (!wavvConfigured()) throw new Error("WAVV_API_KEY not configured");
+        const rec = await fetchWavvRecording(call.recording_path.slice(5));
+        if (!rec) throw new Error("WAVV recording not available (API key rejected or recording missing)");
+        bytes = rec.bytes;
+        contentType = rec.contentType;
+      } else {
+        const resp = await fetch(call.recording_path);
+        if (!resp.ok) throw new Error(`recording fetch failed: ${resp.status}`);
+        bytes = await resp.arrayBuffer();
+        contentType = resp.headers.get("content-type") ?? "audio/mpeg";
+      }
       if (bytes.byteLength === 0) throw new Error("recording is empty");
-      const t = await transcribeRecordingBuffer(
-        bytes,
-        resp.headers.get("content-type") ?? "audio/mpeg"
-      );
+      const t = await transcribeRecordingBuffer(bytes, contentType);
       const wordCount = t.formatted.trim().split(/\s+/).length;
       await admin.from("transcripts").insert({
         call_id: callId,
