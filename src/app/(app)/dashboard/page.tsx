@@ -82,27 +82,27 @@ export default async function DashboardPage() {
   return (
     <div className="space-y-8 p-6 md:p-8">
       {/* Hero header */}
-      <header className="overflow-hidden rounded-2xl bg-gradient-to-br from-ink-900 via-ink-800 to-ink-700 p-6 text-white shadow-lg md:p-8">
+      <header className="overflow-hidden rounded-2xl border border-ink-200 bg-gradient-to-br from-[#141C33] via-[#17264A] to-[#123458] p-6 shadow-glow md:p-8">
         <div className="flex flex-wrap items-end justify-between gap-4">
           <div>
-            <div className="text-xs uppercase tracking-[0.18em] text-white/60">Company</div>
-            <h1 className="mt-1 text-3xl font-semibold tracking-tight md:text-4xl">
+            <div className="text-xs uppercase tracking-[0.18em] text-[#7DD3FC]">Company</div>
+            <h1 className="mt-1 text-3xl font-semibold tracking-tight text-ink-900 md:text-4xl">
               {company?.name}
             </h1>
-            <p className="mt-2 text-sm text-white/70">
+            <p className="mt-2 text-sm text-ink-500">
               Last 30 days · {reps.length} active rep{reps.length === 1 ? "" : "s"}
             </p>
           </div>
           <div className="flex items-center gap-2">
             <Link
               href="/calls/new"
-              className="inline-flex items-center gap-2 rounded-lg bg-white px-4 py-2 text-sm font-medium text-ink-900 shadow-sm transition hover:shadow-md"
+              className="inline-flex items-center gap-2 rounded-lg bg-ink-900 px-4 py-2 text-sm font-medium text-white"
             >
               + New call
             </Link>
             <Link
               href="/leaderboard"
-              className="inline-flex items-center gap-2 rounded-lg border border-white/20 bg-white/5 px-4 py-2 text-sm font-medium text-white backdrop-blur transition hover:bg-white/10"
+              className="inline-flex items-center gap-2 rounded-lg border border-ink-300 bg-ink-100 px-4 py-2 text-sm font-medium text-ink-800 transition hover:bg-ink-200"
             >
               Leaderboard
               <ArrowRight className="h-3.5 w-3.5" />
