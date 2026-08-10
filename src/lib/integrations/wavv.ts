@@ -22,12 +22,20 @@
 
 const BASE = process.env.WAVV_API_BASE || "https://api.wavv.com/v3";
 
+/** Env values pasted via dashboards sometimes carry stray whitespace/quotes. */
+function apiKey(): string | null {
+  const raw = process.env.WAVV_API_KEY;
+  if (!raw) return null;
+  const cleaned = raw.trim().replace(/^['"]+|['"]+$/g, "");
+  return cleaned.length > 0 ? cleaned : null;
+}
+
 export function wavvConfigured(): boolean {
-  return Boolean(process.env.WAVV_API_KEY);
+  return Boolean(apiKey());
 }
 
 async function wavvJson(path: string): Promise<{ status: number; data: any } | null> {
-  const key = process.env.WAVV_API_KEY;
+  const key = apiKey();
   if (!key) return null;
   try {
     const resp = await fetch(`${BASE}${path}`, {
@@ -107,7 +115,7 @@ export async function fetchWavvRecording(
 export async function wavvProbe(uuid?: string | null): Promise<
   Array<{ path: string; status: number | string; snippet: string }>
 > {
-  const key = process.env.WAVV_API_KEY;
+  const key = apiKey();
   if (!key) return [{ path: "-", status: "WAVV_API_KEY not set", snippet: "" }];
 
   const paths = uuid
