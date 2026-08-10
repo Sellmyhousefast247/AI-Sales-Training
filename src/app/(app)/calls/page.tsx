@@ -3,6 +3,7 @@ import { redirect } from "next/navigation";
 import { createSupabaseServerClient } from "@/lib/supabase/server";
 import { getCurrentProfile } from "@/lib/queries";
 import { formatDateTime, formatScore } from "@/lib/utils";
+import { StepChips, StepLegend, stepMap } from "@/components/StepChips";
 
 export default async function CallsListPage() {
   const profile = await getCurrentProfile();
@@ -14,7 +15,7 @@ export default async function CallsListPage() {
     .select(`
       id, call_datetime, call_type, lead_source, deal_outcome,
       reps:rep_id (id, full_name),
-      scorecards!scorecards_call_id_fkey (id, final_score, average_score, is_current)
+      scorecards!scorecards_call_id_fkey (id, final_score, average_score, is_current, step_scores (step, score))
     `)
     .eq("company_id", profile.company_id)
     .order("call_datetime", { ascending: false })
@@ -41,6 +42,7 @@ export default async function CallsListPage() {
               <th className="px-4 py-3">Type</th>
               <th className="px-4 py-3">Source</th>
               <th className="px-4 py-3">Outcome</th>
+              <th className="px-4 py-3">Road to a Deal</th>
               <th className="px-4 py-3 text-right">Score</th>
             </tr>
           </thead>
@@ -58,6 +60,11 @@ export default async function CallsListPage() {
                   <td className="px-4 py-3 capitalize">{c.call_type.replace("_", " ")}</td>
                   <td className="px-4 py-3">{c.lead_source ?? "—"}</td>
                   <td className="px-4 py-3 capitalize">{c.deal_outcome.replace("_", " ")}</td>
+                  <td className="px-4 py-3">
+                    <Link href={`/calls/${c.id}`} title="Open scorecard">
+                      <StepChips steps={stepMap(cur?.step_scores)} />
+                    </Link>
+                  </td>
                   <td className="px-4 py-3 text-right font-mono tabular-nums">
                     {cur ? formatScore(Number(cur.final_score ?? cur.average_score)) : "—"}
                   </td>
@@ -66,7 +73,7 @@ export default async function CallsListPage() {
             })}
             {(rows?.length ?? 0) === 0 && (
               <tr>
-                <td colSpan={6} className="px-4 py-12 text-center text-ink-500">
+                <td colSpan={7} className="px-4 py-12 text-center text-ink-500">
                   No calls yet. <Link href="/calls/new" className="font-medium text-ink-900 hover:underline">Add your first call →</Link>
                 </td>
               </tr>
@@ -74,6 +81,7 @@ export default async function CallsListPage() {
           </tbody>
         </table>
       </div>
+      <StepLegend />
     </div>
   );
 }
