@@ -1,6 +1,7 @@
 import { NextRequest, NextResponse } from "next/server";
 import { createSupabaseAdminClient } from "@/lib/supabase/server";
 import { pullGoHighLevelCalls } from "@/lib/integrations/ghl-pull";
+import { processCallMedia } from "@/lib/integrations/ingest";
 import type { IntegrationRow } from "@/lib/integrations/types";
 
 export const maxDuration = 300;
@@ -44,6 +45,7 @@ async function run(req: NextRequest) {
     .eq("provider", "gohighlevel")
     .eq("is_active", true);
 
+  const started = Date.now();
   const results = [];
   for (const row of (integrations ?? []) as IntegrationRow[]) {
     try {
@@ -54,5 +56,27 @@ async function run(req: NextRequest) {
     }
   }
 
-  return NextResponse.json({ integrations: results.length, results });
+  // Piggyback stuck-call retries on the cron (e.g. calls created "awaiting
+  // WAVV audio" transcribe + score here once the WAVV API works). One call
+  // per run, and only when the pull left enough of the 300s window.
+  const retries = [];
+  if (Date.now() - started < 120_000) {
+    const { data: stuck } = await admin
+      .from("calls")
+      .select("id")
+      .or(
+        "and(transcript_status.in.(pending,failed),recording_path.not.is.null),and(transcript_status.eq.ready,scoring_status.in.(pending,failed))"
+      )
+      .order("created_at", { ascending: true })
+      .limit(1);
+    for (const c of stuck ?? []) {
+      try {
+        retries.push({ call_id: c.id, ...(await processCallMedia(admin, c.id)) });
+      } catch (err: any) {
+        retries.push({ call_id: c.id, error: err?.message?.slice(0, 200) });
+      }
+    }
+  }
+
+  return NextResponse.json({ integrations: results.length, results, retries });
 }
