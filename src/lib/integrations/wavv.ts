@@ -12,7 +12,7 @@
  * (`wavvProbe`) that /api/debug/wavv uses to discover the real shape without
  * the key ever leaving the server.
  *
- * Configuration (Vercel env):
+ * Configuration (Vercel env) — key added 2026-08-10:
  *   WAVV_API_KEY   — Call Logs API key from WAVV Manager → Integrations
  *   WAVV_API_BASE  — optional override, e.g. https://api.wavv.com
  */
