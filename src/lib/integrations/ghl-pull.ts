@@ -46,6 +46,20 @@ const MAX_MESSAGES_PER_CONVERSATION = 40;
  * the 300s function limit — a timeout mid-run would forfeit the whole batch.
  */
 const MAX_NEW_CALLS_PER_RUN = 3;
+/**
+ * Hard wall-clock budget for a single pull run. The Vercel function dies at
+ * 300s; if scanning ever exceeds this budget the run stops early, records
+ * what it has, and — critically — still advances the cursor. Without this,
+ * one busy afternoon of SMS-blast conversations made every run overrun 300s,
+ * die before the cursor update, and re-scan the same window forever.
+ */
+const RUN_BUDGET_MS = 220_000;
+/**
+ * WAVV dialer calls often leave NO conversation message — the contact note is
+ * the only trace. So notes can't be discovered only via message candidates:
+ * also check the contacts behind the most recently active conversations.
+ */
+const NOTES_CONTACTS_CAP = 60;
 
 export interface PullSummary {
   ok: boolean;
@@ -303,14 +317,21 @@ export async function pullGoHighLevelCalls(
 
   const opts_: GhlClientOpts = { token, locationId };
   const now = Date.now();
+  const runStarted = Date.now();
+  const overBudget = () => Date.now() - runStarted > RUN_BUDGET_MS;
   const cursorIso: string | null = cfg.pull_cursor_iso ?? null;
   // Conversation-scan window: explicit lookback override (deep sweeps), else
-  // cursor minus a generous overlap for WAVV's late syncs.
-  const sinceMs = opts.lookbackHours
+  // cursor minus a generous overlap for WAVV's late syncs. A stale cursor is
+  // clamped so a stuck run can never balloon the window past the candidate
+  // horizon — the nightly deep sweep owns anything older.
+  const rawSinceMs = opts.lookbackHours
     ? now - opts.lookbackHours * 60 * 60 * 1000
     : cursorIso
       ? new Date(cursorIso).getTime() - OVERLAP_MS
       : now - INITIAL_LOOKBACK_MS;
+  const sinceMs = opts.lookbackHours
+    ? rawSinceMs
+    : Math.max(rawSinceMs, now - CANDIDATE_LOOKBACK_MS - OVERLAP_MS);
   // Candidate window: never narrower than 48h — backdated call messages must
   // still qualify even when the scan cursor is fresh. Dedup keeps this cheap.
   const candidateSinceMs = Math.min(sinceMs, now - CANDIDATE_LOOKBACK_MS);
@@ -320,7 +341,7 @@ export async function pullGoHighLevelCalls(
   // (opts.contactId) skips the scan and reads that contact's notes directly.
   const conversations: any[] = [];
   let startAfterDate: number | null = null;
-  for (let page = 0; !opts.contactId && page < MAX_CONVERSATION_PAGES; page++) {
+  for (let page = 0; !opts.contactId && page < MAX_CONVERSATION_PAGES && !overBudget(); page++) {
     const pageParam = startAfterDate ? `&startAfterDate=${startAfterDate}` : "";
     let batch: any[] = [];
     try {
@@ -348,6 +369,14 @@ export async function pullGoHighLevelCalls(
   // 2) Collect candidate call messages inside the candidate window.
   const candidates: CandidateCall[] = [];
   for (const conv of conversations) {
+    if (overBudget()) {
+      summary.details.push({
+        external_id: "(budget)",
+        status: "skipped",
+        detail: `run budget reached during message scan (${summary.scanned_conversations} conversations in)`,
+      });
+      break;
+    }
     const lastMsgIso = toIso(
       pick(conv, "lastMessageDate", "last_message_date", "dateUpdated", "updatedAt")
     );
@@ -379,14 +408,30 @@ export async function pullGoHighLevelCalls(
   // the recording URL. Fetch notes for every contact that had call activity
   // and turn WAVV notes into candidates. Notes are the primary source for
   // dialer calls; the message path only succeeds for GHL-native telephony.
+  // Contacts worth a notes check: every message-candidate contact PLUS the
+  // contacts behind the most recently active conversations (newest first).
+  // WAVV dialer calls frequently leave no conversation message at all — the
+  // note is the only evidence — so message candidates alone miss them.
+  const recentConvContacts = conversations
+    .map((conv) => pick(conv, "contactId", "contact_id") as string | undefined)
+    .filter(Boolean) as string[];
   const noteContactIds = opts.contactId
     ? [opts.contactId]
-    : [...new Set(candidates.map((c) => c.contactId).filter(Boolean) as string[])];
+    : [
+        ...new Set([
+          ...(candidates.map((c) => c.contactId).filter(Boolean) as string[]),
+          ...recentConvContacts.slice(0, NOTES_CONTACTS_CAP),
+        ]),
+      ];
   let notesDenied = 0;
   let notesFetched = 0;
   let wavvNotes = 0;
   const noteErrors: string[] = [];
   for (const cid of noteContactIds) {
+    if (overBudget()) {
+      if (noteErrors.length < 3) noteErrors.push("run budget reached during notes scan");
+      break;
+    }
     let notes: any[] = [];
     try {
       const data: any = await ghlJson(opts_, `/contacts/${cid}/notes`, CONTACTS_VERSION);
@@ -465,13 +510,15 @@ export async function pullGoHighLevelCalls(
       continue;
     }
 
-    if (processedHeavy >= MAX_NEW_CALLS_PER_RUN) {
+    if (processedHeavy >= MAX_NEW_CALLS_PER_RUN || overBudget()) {
       if (!oldestDeferredIso && cand.dateAdded) oldestDeferredIso = cand.dateAdded;
       summary.skipped++;
       summary.details.push({
         external_id: cand.messageId,
         status: "deferred",
-        detail: "per-run cap reached; next run will pick it up",
+        detail: overBudget()
+          ? "run budget reached; next run will pick it up"
+          : "per-run cap reached; next run will pick it up",
       });
       continue;
     }
@@ -568,7 +615,14 @@ export async function pullGoHighLevelCalls(
   // so the backlog drains across runs instead of being dropped. Targeted
   // single-contact runs leave the cursor untouched.
   if (!opts.contactId) {
-    const newCursor = oldestDeferredIso ?? new Date(now).toISOString();
+    // Never pin the cursor further back than the candidate horizon — a
+    // permanently-deferred stale candidate once froze the cursor for days,
+    // which ballooned the scan window until every run timed out.
+    const cursorFloorMs = now - CANDIDATE_LOOKBACK_MS;
+    let newCursor = oldestDeferredIso ?? new Date(now).toISOString();
+    if (new Date(newCursor).getTime() < cursorFloorMs) {
+      newCursor = new Date(cursorFloorMs).toISOString();
+    }
     summary.cursor = newCursor;
     await admin
       .from("integrations")
