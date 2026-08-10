@@ -2,12 +2,12 @@ import Link from "next/link";
 
 export default function LandingPage() {
   return (
-    <main className="min-h-screen bg-gradient-to-br from-ink-900 to-ink-700 text-white">
+    <main className="min-h-screen bg-gradient-to-br from-[#0E1424] via-[#121B33] to-[#123458] text-ink-900">
       <header className="flex items-center justify-between px-8 py-6">
         <div className="text-lg font-semibold">Acquisitions AI OS</div>
         <nav className="flex gap-4">
-          <Link href="/login" className="text-sm text-ink-200 hover:text-white">Sign in</Link>
-          <Link href="/signup" className="rounded-md bg-brand-accent px-4 py-2 text-sm font-medium text-white hover:opacity-90">
+          <Link href="/login" className="text-sm text-ink-500 hover:text-ink-900">Sign in</Link>
+          <Link href="/signup" className="rounded-md bg-ink-900 px-4 py-2 text-sm font-medium text-white">
             Start free
           </Link>
         </nav>
@@ -15,15 +15,15 @@ export default function LandingPage() {
 
       <section className="mx-auto max-w-3xl px-8 py-24 text-center">
         <h1 className="text-5xl font-bold leading-tight">Score every seller call. Coach every rep. Pay the right people.</h1>
-        <p className="mt-6 text-lg text-ink-200">
+        <p className="mt-6 text-lg text-ink-500">
           Paste a transcript. Get a 10-category scorecard, a coaching script, and a tier in 60 seconds.
           Built for real estate acquisitions teams.
         </p>
         <div className="mt-10 flex justify-center gap-4">
-          <Link href="/signup" className="rounded-md bg-brand-accent px-6 py-3 font-medium hover:opacity-90">
+          <Link href="/signup" className="rounded-md bg-ink-900 px-6 py-3 font-medium text-white">
             Start free
           </Link>
-          <Link href="/login" className="rounded-md border border-ink-400 px-6 py-3 font-medium hover:bg-ink-800">
+          <Link href="/login" className="rounded-md border border-ink-300 bg-ink-100 px-6 py-3 font-medium text-ink-800 hover:bg-ink-200">
             Sign in
           </Link>
         </div>
@@ -42,9 +42,9 @@ export default function LandingPage() {
 
 function Feature({ title, body }: { title: string; body: string }) {
   return (
-    <div className="rounded-lg border border-ink-700 bg-ink-800/50 p-6">
+    <div className="rounded-lg border border-ink-200 bg-white/60 p-6">
       <div className="font-semibold">{title}</div>
-      <p className="mt-2 text-sm text-ink-300">{body}</p>
+      <p className="mt-2 text-sm text-ink-500">{body}</p>
     </div>
   );
 }
