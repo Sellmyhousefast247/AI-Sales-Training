@@ -19,5 +19,15 @@ export async function GET(req: NextRequest) {
   }
   const uuid = req.nextUrl.searchParams.get("uuid");
   const results = await wavvProbe(uuid);
-  return NextResponse.json({ configured: wavvConfigured(), attempts: results.length, results });
+  // Env-name diagnostics (names only, values never exposed): catches typos or
+  // stray whitespace in the variable name as saved in Vercel.
+  const wavvEnvNames = Object.keys(process.env)
+    .filter((k) => k.toUpperCase().includes("WAVV"))
+    .map((k) => JSON.stringify(k));
+  return NextResponse.json({
+    configured: wavvConfigured(),
+    wavv_env_names: wavvEnvNames,
+    attempts: results.length,
+    results,
+  });
 }
