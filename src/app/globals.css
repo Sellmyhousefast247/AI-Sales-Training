@@ -2,15 +2,55 @@
 @tailwind components;
 @tailwind utilities;
 
-:root { color-scheme: light; }
+:root { color-scheme: dark; }
 
 html, body { height: 100%; }
 
 body {
   @apply bg-ink-50 text-ink-900 antialiased;
+  /* Subtle depth behind the navy, like the reference mock */
+  background-image:
+    radial-gradient(1100px 600px at 85% -10%, rgba(56, 189, 248, 0.07), transparent 60%),
+    radial-gradient(900px 500px at -10% 110%, rgba(37, 99, 235, 0.06), transparent 60%);
+  background-attachment: fixed;
 }
 
 * { -webkit-tap-highlight-color: transparent; }
+
+/* ── Cyan-gradient CTAs ─────────────────────────────────────────────
+   Every primary action in the app is written as `bg-ink-900 text-white`
+   (hover:bg-ink-800). Restyle that exact pair as the glowing gradient
+   button from the reference design — no per-page edits needed. */
+.bg-ink-900.text-white,
+.bg-ink-800.text-white {
+  background-color: transparent;
+  background-image: linear-gradient(135deg, #38bdf8 0%, #2563eb 100%);
+  color: #fff !important;
+  box-shadow: 0 0 16px rgba(56, 189, 248, 0.35);
+  border: 0;
+}
+.bg-ink-900.text-white:hover,
+.bg-ink-800.text-white:hover {
+  background-image: linear-gradient(135deg, #4cc7fa 0%, #3b76f0 100%);
+  box-shadow: 0 0 22px rgba(56, 189, 248, 0.5);
+}
+
+/* Form controls sit on cards — keep them a step darker with navy borders */
+input, select, textarea {
+  color-scheme: dark;
+}
+input::placeholder, textarea::placeholder {
+  color: #64749b;
+}
+
+/* Recessive scrollbars for the dark surface */
+* {
+  scrollbar-width: thin;
+  scrollbar-color: #35446c transparent;
+}
+*::-webkit-scrollbar { width: 10px; height: 10px; }
+*::-webkit-scrollbar-thumb { background: #35446c; border-radius: 8px; }
+*::-webkit-scrollbar-track { background: transparent; }
 
 @media print {
   /* The (app) layout's sidebar — irrelevant on paper. */
@@ -19,6 +59,8 @@ body {
   .grid { display: block !important; }
   /* Anything tagged no-print stays out of the PDF. */
   .no-print { display: none !important; }
-  body { background: white !important; }
+  /* Print stays light-on-white regardless of the dark screen theme. */
+  body { background: white !important; color: #111 !important; }
+  body * { color: #111 !important; background: transparent !important; box-shadow: none !important; }
   main { overflow: visible !important; }
 }
