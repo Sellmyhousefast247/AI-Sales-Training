@@ -140,7 +140,14 @@ export async function wavvProbe(uuid?: string | null): Promise<
           headers: { ...headers, Accept: "application/json" },
         });
         const text = (await resp.text()).slice(0, 300).replace(new RegExp(key, "g"), "***");
-        out.push({ path: `${path} [${styleName}] keyLen=${key.length}`, status: resp.status, snippet: text });
+        // keyPrefix: first 6 chars only — the WAVV Manager key list already
+        // displays the first 10 openly, so this identifies WHICH key is
+        // deployed without exposing secret material.
+        out.push({
+          path: `${path} [${styleName}] keyLen=${key.length} keyPrefix=${key.slice(0, 6)}`,
+          status: resp.status,
+          snippet: text,
+        });
       } catch {
         out.push({ path: `${path} [${styleName}]`, status: "network-error", snippet: "" });
       }
