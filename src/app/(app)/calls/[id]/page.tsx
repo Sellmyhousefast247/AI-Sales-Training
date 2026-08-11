@@ -54,14 +54,16 @@ export default async function CallDetailPage({ params }: { params: Promise<{ id:
     <div className="space-y-6 p-8">
       <Link href="/calls" className="text-sm text-ink-500 hover:text-ink-900">← Back to calls</Link>
 
-      <header className="flex flex-wrap items-center gap-3 text-sm">
-        <span className="font-semibold">{formatDateTime(call.call_datetime)}</span>
-        <span className="text-ink-400">·</span>
-        <span>{(call as any).reps?.full_name ?? "Unknown rep"}</span>
-        <span className="text-ink-400">·</span>
-        <span className="capitalize">{call.call_type.replace("_", " ")}</span>
-        {call.lead_source && (<><span className="text-ink-400">·</span><span>{call.lead_source}</span></>)}
-        {call.seller_name && (<><span className="text-ink-400">·</span><span>{call.seller_name}</span></>)}
+      <header className="space-y-1">
+        <h1 className="text-xl font-semibold">{call.seller_name ?? "Unknown seller"}</h1>
+        <div className="flex flex-wrap items-center gap-3 text-sm text-ink-500">
+          <span>{formatDateTime(call.call_datetime)}</span>
+          <span className="text-ink-400">·</span>
+          <span>{(call as any).reps?.full_name ?? "Unknown rep"}</span>
+          <span className="text-ink-400">·</span>
+          <span className="capitalize">{call.call_type.replace("_", " ")}</span>
+          {call.lead_source && (<><span className="text-ink-400">·</span><span>{call.lead_source}</span></>)}
+        </div>
       </header>
 
       {scorecard ? (
