@@ -156,9 +156,13 @@ export async function scoreCall(input: ScoreCallInput): Promise<ScoreCallResult>
   // or mis-encoded output, retrying at temperature 0 would reproduce it verbatim,
   // so subsequent passes raise temperature and add a native-JSON nudge to break
   // the model out of the bad-output rut.
-  // Two passes keep the worst case comfortably under the 300s function limit.
+  // The native-JSON nudge rides on the FIRST pass so the problematic calls
+  // succeed immediately (clean native JSON is also smaller/faster to generate
+  // than the escaped-string form, keeping a single pass well under the 300s
+  // function limit). The second pass only differs by temperature, as a fallback
+  // for the rare transient parse miss.
   const passes: Array<{ temperature: number; nudge: boolean }> = [
-    { temperature: 0, nudge: false },
+    { temperature: 0, nudge: true },
     { temperature: 0.6, nudge: true },
   ];
   let lastErr: unknown;
