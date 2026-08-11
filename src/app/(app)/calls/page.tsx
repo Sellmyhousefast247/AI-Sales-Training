@@ -25,12 +25,20 @@ export default async function CallsListPage() {
     <div className="space-y-6 p-8">
       <header className="flex items-center justify-between">
         <h1 className="text-2xl font-semibold">Calls</h1>
-        <Link
-          href="/calls/new"
-          className="rounded-md bg-ink-900 px-4 py-2 text-sm font-medium text-white hover:bg-ink-800"
-        >
-          + New call
-        </Link>
+        <div className="flex items-center gap-2">
+          <Link
+            href="/calls/import"
+            className="rounded-md border border-ink-300 bg-ink-100 px-4 py-2 text-sm font-medium text-ink-800 hover:bg-ink-200"
+          >
+            Import recordings
+          </Link>
+          <Link
+            href="/calls/new"
+            className="rounded-md bg-ink-900 px-4 py-2 text-sm font-medium text-white hover:bg-ink-800"
+          >
+            + New call
+          </Link>
+        </div>
       </header>
 
       <div className="overflow-hidden rounded-lg border border-ink-200 bg-white">
