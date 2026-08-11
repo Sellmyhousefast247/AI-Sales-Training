@@ -2,8 +2,9 @@ import Link from "next/link";
 import { redirect } from "next/navigation";
 import { createSupabaseServerClient } from "@/lib/supabase/server";
 import { getCurrentProfile } from "@/lib/queries";
-import { formatDateTime, formatScore } from "@/lib/utils";
+import { formatDateTime } from "@/lib/utils";
 import { StepChips, StepLegend, stepMap } from "@/components/StepChips";
+import { ScoreCell } from "./ScoreCell";
 
 export default async function CallsListPage() {
   const profile = await getCurrentProfile();
@@ -79,8 +80,11 @@ export default async function CallsListPage() {
                       <StepChips steps={stepMap(cur?.step_scores)} />
                     </Link>
                   </td>
-                  <td className="px-4 py-3 text-right font-mono tabular-nums">
-                    {cur ? formatScore(Number(cur.final_score ?? cur.average_score)) : "—"}
+                  <td className="px-4 py-3 text-right">
+                    <ScoreCell
+                      callId={c.id}
+                      score={cur ? Number(cur.final_score ?? cur.average_score) : null}
+                    />
                   </td>
                 </tr>
               );
