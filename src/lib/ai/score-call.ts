@@ -85,29 +85,41 @@ export async function scoreCall(input: ScoreCallInput): Promise<ScoreCallResult>
       );
     }
 
-    // The model occasionally returns a nested field (e.g. step_scores) as a
-    // JSON-encoded string instead of an object — unwrap those before parsing.
-    const unwrap = (val: unknown): unknown => {
-      if (typeof val !== "string") return val;
-      let s = val.trim();
-      // Strip ``` / ```json code fences the model sometimes wraps JSON in.
-      if (s.startsWith("```")) {
-        s = s.replace(/^```(?:json)?\s*/i, "").replace(/\s*```$/, "").trim();
-      }
-      if (s.startsWith("{") || s.startsWith("[")) {
-        try {
-          return JSON.parse(s);
-        } catch {
-          return val;
+    // The model intermittently JSON-encodes values that should be native — an
+    // object handed back as a string (e.g. step_scores), or even an enum scalar
+    // returned quoted (deal_risk: "\"high\""). Recursively decode any string
+    // that is itself valid JSON (object, array, or quoted scalar) so validation
+    // sees the real shape regardless of which field the model wrapped.
+    const deepUnwrap = (val: unknown): unknown => {
+      if (typeof val === "string") {
+        let s = val.trim();
+        if (s.startsWith("```")) {
+          s = s.replace(/^```(?:json)?\s*/i, "").replace(/\s*```$/, "").trim();
         }
+        const looksEncoded =
+          s.startsWith("{") ||
+          s.startsWith("[") ||
+          (s.length > 1 && s.startsWith('"') && s.endsWith('"'));
+        if (looksEncoded) {
+          try {
+            return deepUnwrap(JSON.parse(s));
+          } catch {
+            return val;
+          }
+        }
+        return val;
+      }
+      if (Array.isArray(val)) return val.map(deepUnwrap);
+      if (val && typeof val === "object") {
+        const out: Record<string, unknown> = {};
+        for (const [k, v] of Object.entries(val as Record<string, unknown>)) {
+          out[k] = deepUnwrap(v);
+        }
+        return out;
       }
       return val;
     };
-    const rawInput = toolUse.input as Record<string, unknown>;
-    const coerced: Record<string, unknown> = { ...rawInput };
-    for (const [k, v] of Object.entries(coerced)) {
-      coerced[k] = unwrap(v);
-    }
+    const coerced = deepUnwrap(toolUse.input) as Record<string, unknown>;
     const parsed = scorecardOutputSchema.parse(coerced);
 
     // Authoritative recompute of total + final from individual step scores.
