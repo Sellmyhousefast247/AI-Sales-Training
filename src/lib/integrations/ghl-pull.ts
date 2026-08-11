@@ -497,13 +497,21 @@ export async function pullGoHighLevelCalls(
     // Cheap dedup before any API-heavy work.
     const { data: existing } = await admin
       .from("calls")
-      .select("id")
+      .select("id, external_contact_id")
       .eq("company_id", integration.company_id)
       .eq("imported_from", integration.provider)
       .eq("external_id", cand.messageId)
       .maybeSingle();
     if (existing) {
       summary.duplicates++;
+      // Backfill the GHL contact id on rows created before we stored it, so
+      // the seller name can deep-link to the contact.
+      if (cand.contactId && !(existing as any).external_contact_id) {
+        await admin
+          .from("calls")
+          .update({ external_contact_id: cand.contactId })
+          .eq("id", existing.id);
+      }
       continue;
     }
 
@@ -571,6 +579,7 @@ export async function pullGoHighLevelCalls(
             sellerPhone: pick(contact, "phone") ?? null,
             propertyAddress: pick(contact, "address1", "fullAddress") ?? null,
             leadSource: pick(contact, "source") ?? null,
+            externalContactId: cand.contactId,
             recordingUrl: `wavv:${cand.wavvUuid}`,
             transcript: null,
           };
@@ -638,6 +647,7 @@ export async function pullGoHighLevelCalls(
         sellerPhone: pick(contact, "phone") ?? null,
         propertyAddress: pick(contact, "address1", "fullAddress") ?? null,
         leadSource: pick(contact, "source") ?? null,
+        externalContactId: cand.contactId,
         recordingUrl: cand.attachmentUrl, // playable WAVV MP3 when present
         transcript: t.formatted,
       };

@@ -24,6 +24,8 @@ export interface NormalizedInboundCall {
   sellerPhone?: string | null;
   propertyAddress?: string | null;
   leadSource?: string | null;
+  /** Provider-side contact id (e.g. GHL contactId) for deep-linking. */
+  externalContactId?: string | null;
   /** Publicly fetchable recording URL, if the provider exposes one. */
   recordingUrl?: string | null;
   /** Transcript text if the provider already transcribed the call. */

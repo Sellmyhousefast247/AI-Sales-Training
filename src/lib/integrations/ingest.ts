@@ -112,6 +112,7 @@ export async function ingestNormalizedCall(
       recording_duration_sec: norm.durationSec ?? null,
       imported_from: integration.provider,
       external_id: norm.externalId,
+      external_contact_id: norm.externalContactId ?? null,
       transcript_status: norm.transcript ? "ready" : "pending",
       scoring_status: "pending",
     })
