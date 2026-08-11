@@ -200,8 +200,9 @@ export default async function RepProfilePage({ params }: { params: Promise<{ id:
             return (
               <li key={c.id} className="flex items-center justify-between py-2">
                 <Link href={`/calls/${c.id}`} className="hover:underline">
-                  {formatDateTime(c.call_datetime)}
-                  <span className="ml-2 capitalize text-ink-500">{c.call_type.replace("_", " ")}</span>
+                  <span className="font-medium">{c.seller_name ?? "—"}</span>
+                  <span className="ml-2 text-ink-500">{formatDateTime(c.call_datetime)}</span>
+                  <span className="ml-2 capitalize text-ink-400">{c.call_type.replace("_", " ")}</span>
                 </Link>
                 <span className="font-mono tabular-nums">{score != null ? formatScore(score) : "—"}</span>
               </li>
