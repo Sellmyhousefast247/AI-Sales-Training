@@ -55,7 +55,7 @@ export async function scoreCall(input: ScoreCallInput): Promise<ScoreCallResult>
   const attempt = async () => {
     const resp = await client().messages.create({
       model: MODEL,
-      max_tokens: 16384,
+      max_tokens: 32000,
       temperature: 0,
       // Prompt caching uses a SDK property the 0.32.x types don't yet
       // expose; cast keeps the runtime API call shape correct.
@@ -76,21 +76,37 @@ export async function scoreCall(input: ScoreCallInput): Promise<ScoreCallResult>
       | undefined;
     if (!toolUse) throw new Error("No tool_use block in scoring response");
 
+    // If the model hit the output-token ceiling, the tool JSON is truncated and
+    // nested objects come back as unparseable strings. Surface that clearly so
+    // the caller retries rather than reporting a confusing schema error.
+    if (resp.stop_reason === "max_tokens") {
+      throw new Error(
+        "Scoring response was truncated (hit max output tokens) — retrying"
+      );
+    }
+
     // The model occasionally returns a nested field (e.g. step_scores) as a
     // JSON-encoded string instead of an object — unwrap those before parsing.
+    const unwrap = (val: unknown): unknown => {
+      if (typeof val !== "string") return val;
+      let s = val.trim();
+      // Strip ``` / ```json code fences the model sometimes wraps JSON in.
+      if (s.startsWith("```")) {
+        s = s.replace(/^```(?:json)?\s*/i, "").replace(/\s*```$/, "").trim();
+      }
+      if (s.startsWith("{") || s.startsWith("[")) {
+        try {
+          return JSON.parse(s);
+        } catch {
+          return val;
+        }
+      }
+      return val;
+    };
     const rawInput = toolUse.input as Record<string, unknown>;
     const coerced: Record<string, unknown> = { ...rawInput };
     for (const [k, v] of Object.entries(coerced)) {
-      if (typeof v === "string") {
-        const s = v.trim();
-        if (s.startsWith("{") || s.startsWith("[")) {
-          try {
-            coerced[k] = JSON.parse(s);
-          } catch {
-            /* leave as-is; schema will surface the real error */
-          }
-        }
-      }
+      coerced[k] = unwrap(v);
     }
     const parsed = scorecardOutputSchema.parse(coerced);
 
