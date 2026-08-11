@@ -13,7 +13,7 @@ export default async function CallsListPage() {
   const { data: rows } = await supabase
     .from("calls")
     .select(`
-      id, call_datetime, call_type, lead_source, deal_outcome,
+      id, call_datetime, call_type, lead_source, deal_outcome, seller_name,
       reps:rep_id (id, full_name),
       scorecards!scorecards_call_id_fkey (id, final_score, average_score, is_current, step_scores (step, score))
     `)
@@ -46,6 +46,7 @@ export default async function CallsListPage() {
           <thead className="bg-ink-50 text-left text-xs uppercase tracking-wide text-ink-500">
             <tr>
               <th className="px-4 py-3">Date</th>
+              <th className="px-4 py-3">Seller</th>
               <th className="px-4 py-3">Rep</th>
               <th className="px-4 py-3">Type</th>
               <th className="px-4 py-3">Source</th>
@@ -59,9 +60,14 @@ export default async function CallsListPage() {
               const cur = (c.scorecards ?? []).find((s: any) => s.is_current);
               return (
                 <tr key={c.id} className="hover:bg-ink-50">
-                  <td className="px-4 py-3">
+                  <td className="px-4 py-3 whitespace-nowrap">
                     <Link href={`/calls/${c.id}`} className="text-ink-900 hover:underline">
                       {formatDateTime(c.call_datetime)}
+                    </Link>
+                  </td>
+                  <td className="px-4 py-3">
+                    <Link href={`/calls/${c.id}`} className="font-medium text-ink-900 hover:underline">
+                      {c.seller_name ?? "—"}
                     </Link>
                   </td>
                   <td className="px-4 py-3">{c.reps?.full_name ?? "—"}</td>
@@ -81,7 +87,7 @@ export default async function CallsListPage() {
             })}
             {(rows?.length ?? 0) === 0 && (
               <tr>
-                <td colSpan={7} className="px-4 py-12 text-center text-ink-500">
+                <td colSpan={8} className="px-4 py-12 text-center text-ink-500">
                   No calls yet. <Link href="/calls/new" className="font-medium text-ink-900 hover:underline">Add your first call →</Link>
                 </td>
               </tr>
