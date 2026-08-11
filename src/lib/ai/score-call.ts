@@ -52,11 +52,17 @@ function estimateCost(model: string, input: number, output: number) {
 export async function scoreCall(input: ScoreCallInput): Promise<ScoreCallResult> {
   const userMessage = buildUserMessage(input);
 
-  const attempt = async () => {
+  const NUDGE =
+    "IMPORTANT: Call the score_call tool with every field as NATIVE JSON — " +
+    "step_scores and critical_breakpoint as JSON objects, the array fields as " +
+    "JSON arrays, and enum/number/string fields as bare values. Do NOT return " +
+    "any field as a quoted/escaped JSON string or wrapped in code fences.";
+
+  const attempt = async (temperature: number, nudge: boolean) => {
     const resp = await client().messages.create({
       model: MODEL,
       max_tokens: 32000,
-      temperature: 0,
+      temperature,
       // Prompt caching uses a SDK property the 0.32.x types don't yet
       // expose; cast keeps the runtime API call shape correct.
       system: [
@@ -68,7 +74,12 @@ export async function scoreCall(input: ScoreCallInput): Promise<ScoreCallResult>
       ],
       tools: [SCORE_CALL_TOOL as unknown as Anthropic.Tool],
       tool_choice: { type: "tool", name: "score_call" },
-      messages: [{ role: "user", content: userMessage }],
+      messages: nudge
+        ? [
+            { role: "user", content: userMessage },
+            { role: "user", content: NUDGE },
+          ]
+        : [{ role: "user", content: userMessage }],
     });
 
     const toolUse = resp.content.find((c) => c.type === "tool_use") as
@@ -141,12 +152,24 @@ export async function scoreCall(input: ScoreCallInput): Promise<ScoreCallResult>
     } as ScoreCallResult;
   };
 
-  try {
-    return await attempt();
-  } catch {
-    // One retry — most failures are transient schema parse misses
-    return await attempt();
+  // First pass is deterministic (temperature 0). If the model produced malformed
+  // or mis-encoded output, retrying at temperature 0 would reproduce it verbatim,
+  // so subsequent passes raise temperature and add a native-JSON nudge to break
+  // the model out of the bad-output rut.
+  // Two passes keep the worst case comfortably under the 300s function limit.
+  const passes: Array<{ temperature: number; nudge: boolean }> = [
+    { temperature: 0, nudge: false },
+    { temperature: 0.6, nudge: true },
+  ];
+  let lastErr: unknown;
+  for (const pass of passes) {
+    try {
+      return await attempt(pass.temperature, pass.nudge);
+    } catch (err) {
+      lastErr = err;
+    }
   }
+  throw lastErr;
 }
 
 function round(n: number, places: number) {
