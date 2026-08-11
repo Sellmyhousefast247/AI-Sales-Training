@@ -3,10 +3,17 @@ import { ROAD_TO_DEAL_STEPS } from "@/lib/types";
 
 const stepKey = z.enum(ROAD_TO_DEAL_STEPS);
 
+// Optional free-text field the model may omit entirely OR return as an
+// explicit null (e.g. no supporting quote exists for a step). `.optional()`
+// alone rejects null, so accept null/undefined and normalize to "".
+const optionalText = z
+  .union([z.string(), z.null(), z.undefined()])
+  .transform((v) => v ?? "");
+
 const stepScore = z.object({
   score: z.number().int().min(0).max(10),
   justification: z.string().min(1),
-  supporting_quote: z.string().optional().default(""),
+  supporting_quote: optionalText,
 });
 
 const improvementItem = z.object({
@@ -14,11 +21,11 @@ const improvementItem = z.object({
   issue: z.string(),
   better_approach: z.string(),
   corrected_script: z.string(),
-  step: stepKey.optional(),
+  step: stepKey.nullish().transform((v) => v ?? undefined),
 });
 
 const missedOpportunity = z.object({
-  rep_said: z.string().optional().default(""),
+  rep_said: optionalText,
   what_was_missed: z.string(),
   fix: z.string(),
 });
