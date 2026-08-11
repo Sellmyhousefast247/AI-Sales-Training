@@ -46,8 +46,8 @@ export default async function CallsListPage() {
           <thead className="bg-ink-50 text-left text-xs uppercase tracking-wide text-ink-500">
             <tr>
               <th className="px-4 py-3">Date</th>
-              <th className="px-4 py-3">Seller</th>
               <th className="px-4 py-3">Rep</th>
+              <th className="px-4 py-3">Seller</th>
               <th className="px-4 py-3">Type</th>
               <th className="px-4 py-3">Source</th>
               <th className="px-4 py-3">Outcome</th>
@@ -65,12 +65,12 @@ export default async function CallsListPage() {
                       {formatDateTime(c.call_datetime)}
                     </Link>
                   </td>
+                  <td className="px-4 py-3">{c.reps?.full_name ?? "—"}</td>
                   <td className="px-4 py-3">
                     <Link href={`/calls/${c.id}`} className="font-medium text-ink-900 hover:underline">
                       {c.seller_name ?? "—"}
                     </Link>
                   </td>
-                  <td className="px-4 py-3">{c.reps?.full_name ?? "—"}</td>
                   <td className="px-4 py-3 capitalize">{c.call_type.replace("_", " ")}</td>
                   <td className="px-4 py-3">{c.lead_source ?? "—"}</td>
                   <td className="px-4 py-3 capitalize">{c.deal_outcome.replace("_", " ")}</td>
