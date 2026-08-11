@@ -13,6 +13,26 @@ const Body = z.object({
 });
 
 /**
+ * GET /api/jobs/set-recording — list calls still awaiting audio
+ * (recording_path "wavv:…" or transcript not ready), with the phone/time/uuid
+ * needed to match them against captured recording URLs. Protected by CRON_SECRET.
+ */
+export async function GET(req: NextRequest) {
+  const auth = req.headers.get("authorization");
+  if (!process.env.CRON_SECRET || auth !== `Bearer ${process.env.CRON_SECRET}`) {
+    return NextResponse.json({ error: "unauthorized" }, { status: 401 });
+  }
+  const admin = createSupabaseAdminClient();
+  const { data } = await admin
+    .from("calls")
+    .select("id, call_datetime, seller_name, seller_phone, recording_path, transcript_status, scoring_status, external_id, rep_id")
+    .neq("transcript_status", "ready")
+    .order("call_datetime", { ascending: false })
+    .limit(50);
+  return NextResponse.json({ pending: data ?? [] });
+}
+
+/**
  * POST /api/jobs/set-recording — attach a recording URL to an existing call
  * and (by default) immediately transcribe + score it.
  *
