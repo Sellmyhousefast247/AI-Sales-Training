@@ -488,7 +488,12 @@ export async function pullGoHighLevelCalls(
 
   const userEmailCache = new Map<string, string | null>();
   const contactCache = new Map<string, any>();
-  const minDuration = cfg.min_duration_sec ?? 30;
+  // Only auto-ingest/score calls that are at least 10 minutes long. Shorter
+  // calls are almost never real sales conversations, so scoring them wastes
+  // transcription + model spend. Enforced as a hard floor: config may raise the
+  // threshold but not lower it below 10 minutes.
+  const MIN_SCORE_DURATION_SEC = 600;
+  const minDuration = Math.max(MIN_SCORE_DURATION_SEC, cfg.min_duration_sec ?? 0);
   let processedHeavy = 0;
   /** Oldest call deferred by the per-run cap — the cursor must not pass it. */
   let oldestDeferredIso: string | null = null;
