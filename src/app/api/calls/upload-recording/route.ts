@@ -1,4 +1,4 @@
-import { NextRequest, NextResponse } from "next/server";
+import { NextRequest, NextResponse, after } from "next/server";
 import { createSupabaseServerClient, createSupabaseAdminClient } from "@/lib/supabase/server";
 import { getCurrentProfile } from "@/lib/queries";
 import { transcribeRecordingBuffer, transcriptionConfigured } from "@/lib/transcription/deepgram";
@@ -14,8 +14,16 @@ export const dynamic = "force-dynamic";
  *
  * Recovery path for WAVV calls created "awaiting audio": the recording lives
  * behind WAVV's authenticated widget (no server-reachable URL), so the user
- * downloads it from the dialer and drops it here. We transcribe the bytes and
- * score the matched call — same pipeline as automatic ingestion.
+ * downloads it from the dialer and drops it here.
+ *
+ * Transcription and scoring are DECOUPLED: a long call (e.g. 30-40 min) can take
+ * a large chunk of the 300s function budget, and then scoring the long transcript
+ * would blow past the limit — the whole request would time out and the upload
+ * would appear to "fail" even though the audio was fine. So we transcribe
+ * synchronously (Deepgram is much faster than real time) and return as soon as the
+ * transcript is saved, then run scoring in the background via `after()`. The client
+ * polls for the score to land. Scoring is idempotent, so if the background pass is
+ * interrupted the call can be re-scored without re-uploading.
  */
 export async function POST(req: NextRequest) {
   const profile = await getCurrentProfile();
@@ -67,7 +75,11 @@ export async function POST(req: NextRequest) {
       word_count: wordCount,
       source: "deepgram",
     });
-    const updates: Record<string, unknown> = { transcript_status: "ready" };
+    const updates: Record<string, unknown> = {
+      transcript_status: "ready",
+      // Mark scoring in-flight so the UI shows "Scoring in progress" immediately.
+      scoring_status: "scoring",
+    };
     if (t.durationSec != null) updates.recording_duration_sec = t.durationSec;
     await admin.from("calls").update(updates).eq("id", callId);
   } catch (err: any) {
@@ -75,10 +87,16 @@ export async function POST(req: NextRequest) {
     return NextResponse.json({ error: { message: err?.message ?? "transcription failed" } }, { status: 502 });
   }
 
-  const result = await runScoringForCall(admin, callId, { actorUserId: profile.id });
-  if (!result.ok) {
-    return NextResponse.json({ error: { message: result.message } }, { status: 502 });
-  }
-  const { ok: _ok, ...payload } = result;
-  return NextResponse.json({ ok: true, call_id: callId, ...payload });
+  // Score in the background so a long transcript gets a fresh time budget without
+  // the upload request timing out. The client polls the calls list for the result.
+  const actorUserId = profile.id;
+  after(async () => {
+    try {
+      await runScoringForCall(admin, callId, { actorUserId });
+    } catch {
+      await admin.from("calls").update({ scoring_status: "failed" }).eq("id", callId);
+    }
+  });
+
+  return NextResponse.json({ ok: true, call_id: callId, transcribed: true, scoring: "in_progress" });
 }
