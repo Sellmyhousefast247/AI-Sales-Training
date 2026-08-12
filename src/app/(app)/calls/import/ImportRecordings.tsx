@@ -46,9 +46,11 @@ export function ImportRecordings({ pending }: { pending: PendingCall[] }) {
         setState((s) => ({ ...s, [callId]: { status: "error", message: j.error?.message ?? "Upload failed", fileName: file.name } }));
         return;
       }
+      // Transcript saved; scoring now runs in the background. The call leaves the
+      // "awaiting audio" list on refresh and its score appears on the Calls page.
       setState((s) => ({
         ...s,
-        [callId]: { status: "done", message: `Scored ${Number(j.final_score ?? 0).toFixed(1)}/10`, fileName: file.name },
+        [callId]: { status: "done", message: "Transcribed ✓ — scoring…", fileName: file.name },
       }));
       router.refresh();
     } catch (e: any) {
@@ -127,7 +129,7 @@ export function ImportRecordings({ pending }: { pending: PendingCall[] }) {
                   <td className="px-4 py-3">{c.durationSec ? `${Math.round(c.durationSec / 60)}m` : "—"}</td>
                   <td className="px-4 py-3 text-right">
                     {st?.status === "uploading" ? (
-                      <span className="text-ink-500">Transcribing &amp; scoring…</span>
+                      <span className="text-ink-500">Transcribing…</span>
                     ) : st?.status === "done" ? (
                       <span className="text-emerald-600">✓ {st.message}</span>
                     ) : st?.status === "error" ? (
