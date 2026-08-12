@@ -6,6 +6,11 @@ import { useRouter } from "next/navigation";
  * Right-hand "Score" cell on the calls list. If the call is already scored it
  * shows the number; otherwise it shows an inline Upload control so the user can
  * attach the recording for THAT call and score it without leaving the page.
+ *
+ * Upload → transcribe (server) → score (server, in background). The upload
+ * request returns as soon as the transcript is saved so long calls don't time
+ * out; we then poll (router.refresh) until the score lands and the parent passes
+ * a non-null `score`, at which point this cell renders the number.
  */
 export function ScoreCell({
   callId,
@@ -25,7 +30,7 @@ export function ScoreCell({
 
   async function upload(file: File) {
     setStatus("busy");
-    setMessage(null);
+    setMessage("Transcribing…");
     const fd = new FormData();
     fd.append("file", file);
     fd.append("call_id", callId);
@@ -37,8 +42,16 @@ export function ScoreCell({
         setMessage(j.error?.message ?? "Upload failed");
         return;
       }
-      // Score is now set — refresh so the row shows the number.
-      router.refresh();
+      // Transcript saved; scoring runs in the background. Poll for it to appear.
+      setMessage("Scoring…");
+      // ~5 min of polling; a scored call re-renders this cell as the number.
+      for (let i = 0; i < 25; i++) {
+        await new Promise((r) => setTimeout(r, 12000));
+        router.refresh();
+      }
+      // If we get here the score still hasn't landed — let the user retry.
+      setStatus("error");
+      setMessage("Scoring is taking longer than expected — refresh the page");
     } catch (e: any) {
       setStatus("error");
       setMessage(String(e));
@@ -46,7 +59,7 @@ export function ScoreCell({
   }
 
   if (status === "busy") {
-    return <span className="text-xs text-ink-500">Scoring…</span>;
+    return <span className="text-xs text-ink-500">{message ?? "Working…"}</span>;
   }
 
   return (
@@ -59,7 +72,7 @@ export function ScoreCell({
         {status === "error" ? "Retry upload" : "Upload"}
       </button>
       {status === "error" && message && (
-        <span className="max-w-[160px] truncate text-[10px] text-red-500" title={message}>
+        <span className="max-w-[180px] truncate text-[10px] text-red-500" title={message}>
           {message}
         </span>
       )}
