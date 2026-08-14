@@ -2,6 +2,8 @@ import { redirect } from "next/navigation";
 import { createSupabaseServerClient } from "@/lib/supabase/server";
 import { getCurrentProfile } from "@/lib/queries";
 import { IntegrationsPanel } from "./IntegrationsPanel";
+import { ScriptEditor } from "./ScriptEditor";
+import { MANUAL_SCRIPT_2026 } from "./scriptDefault";
 
 export default async function SettingsPage() {
   const profile = await getCurrentProfile();
@@ -41,10 +43,15 @@ export default async function SettingsPage() {
         </div>
       </section>
 
+      <ScriptEditor
+        initial={(settings?.script_content as string | null) ?? ""}
+        manualDefault={MANUAL_SCRIPT_2026}
+      />
+
       <IntegrationsPanel reps={reps ?? []} />
 
       <p className="text-xs text-ink-500">
-        Edit UI ships in V2. For MVP, edit settings directly in Supabase or via API.
+        Other settings edit UI ships in V2. For now, other settings are edited in Supabase or via API.
       </p>
     </div>
   );
