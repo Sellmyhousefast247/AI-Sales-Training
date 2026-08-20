@@ -1,37 +1,55 @@
 import { NextRequest, NextResponse } from "next/server";
-import { wavvProbe, wavvConfigured } from "@/lib/integrations/wavv";
 
 export const maxDuration = 120;
 export const dynamic = "force-dynamic";
 
 /**
- * GET /api/debug/wavv[?uuid=<wavv call uuid>] — CRON_SECRET-protected probe.
+ * GET /api/debug/wavv — CRON_SECRET-protected discovery probe (read-only).
  *
- * WAVV's API docs aren't public, so this endpoint runs the client's discovery
- * matrix (base URL × auth style × path) server-side — the key never leaves
- * the environment — and reports status codes + sanitized body snippets so the
- * real endpoint shape can be identified and locked in.
+ * Disambiguates WAVV auth: for each candidate base URL, calls GET /calls with
+ * (a) the real key raw in Authorization, (b) a GARBAGE key raw, (c) the real
+ * key as Bearer. If (a) and (b) differ, the server validates the raw key —
+ * i.e. auth works without the Bearer prefix — and the path/base giving a
+ * non-404 with (a) is the real API surface.
+ * Pass ?uuid=<wavv call uuid> to hit /calls/<uuid>/transcript instead.
  */
 export async function GET(req: NextRequest) {
   const auth = req.headers.get("authorization");
   if (!process.env.CRON_SECRET || auth !== `Bearer ${process.env.CRON_SECRET}`) {
     return NextResponse.json({ error: "unauthorized" }, { status: 401 });
   }
+  const key = (process.env.WAVV_API_KEY ?? "").trim().replace(/^['"]|['"]$/g, "");
+  if (!key) return NextResponse.json({ error: "WAVV_API_KEY not set" }, { status: 500 });
+
   const uuid = req.nextUrl.searchParams.get("uuid");
-  const results = await wavvProbe(uuid);
-  // Env-name diagnostics (names only, values never exposed): catches typos or
-  // stray whitespace in the variable name as saved in Vercel.
-  const wavvEnvNames = Object.keys(process.env)
-    .filter((k) => k.toUpperCase().includes("WAVV"))
-    .map((k) => JSON.stringify(k));
-  // Full env-name inventory (names only, never values) — used to diagnose a
-  // dashboard-saved variable that fails to appear at runtime.
-  const allEnvNames = Object.keys(process.env).sort();
-  return NextResponse.json({
-    configured: wavvConfigured(),
-    wavv_env_names: wavvEnvNames,
-    all_env_names: allEnvNames,
-    attempts: results.length,
-    results,
-  });
+  const bases = [
+    "https://api.wavv.com/v3",
+    "https://api.wavv.com",
+    "https://api.wavv.com/v1",
+    "https://api.wavv.com/v2",
+    "https://api.wavv.com/public/v3",
+    "https://api.wavv.com/api/v3",
+  ];
+  const path = uuid ? `/calls/${uuid}/transcript` : `/calls?limit=1`;
+  const styles: Array<[string, string]> = [
+    ["raw-real", key],
+    ["raw-garbage", "garbagekey_0000000000000000000000000000000000000000000000000000"],
+    ["bearer-real", `Bearer ${key}`],
+  ];
+
+  const results: Array<{ base: string; style: string; status: number | string; snippet: string }> = [];
+  for (const base of bases) {
+    for (const [style, headerVal] of styles) {
+      try {
+        const resp = await fetch(`${base}${path}`, {
+          headers: { Authorization: headerVal, Accept: "application/json" },
+        });
+        const text = (await resp.text()).slice(0, 200).replace(new RegExp(key, "g"), "***");
+        results.push({ base, style, status: resp.status, snippet: text });
+      } catch (err: any) {
+        results.push({ base, style, status: "ERR", snippet: String(err?.message ?? err).slice(0, 120) });
+      }
+    }
+  }
+  return NextResponse.json({ keyLen: key.length, keyPrefix: key.slice(0, 6), path, results });
 }
