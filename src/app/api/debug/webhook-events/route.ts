@@ -43,14 +43,34 @@ export async function GET(req: NextRequest) {
       }
       return null;
     };
+    const sanitize = (v: unknown, n = 220) =>
+      v == null ? null : String(v).replace(/https?:\/\/\S+/g, "<url>").slice(0, n);
+    const keysOf = (o: any) => (o && typeof o === "object" ? Object.keys(o).slice(0, 30) : null);
     return {
       created_at: e.created_at,
       provider: e.provider,
       status: e.status,
       error: e.error,
       call_id: e.call_id,
-      topLevelKeys: Object.keys(p).slice(0, 25),
+      workflowName: p.workflow?.name ?? null,
+      workflowId: p.workflow?.id ?? null,
+      topLevelKeys: Object.keys(p).slice(0, 30),
       customDataKeys: custom ? Object.keys(custom).slice(0, 25) : null,
+      customTranscriptRaw: {
+        type: typeof custom?.transcript,
+        len: custom?.transcript != null ? String(custom.transcript).length : null,
+        value: sanitize(custom?.transcript),
+      },
+      customCallIdRaw: sanitize(custom?.call_id, 80),
+      messageKeys: keysOf(p.message),
+      messagePreview: p.message
+        ? Object.fromEntries(
+            Object.entries(p.message)
+              .slice(0, 20)
+              .map(([k, v]) => [k, typeof v === "object" ? keysOf(v) : sanitize(v, 120)])
+          )
+        : null,
+      triggerDataKeys: keysOf(p.triggerData),
       transcript: findTranscript(p),
       hasRecordingUrl: !!(p.customData?.recording_url ?? p.call?.recordingUrl ?? p.recordingUrl ?? p.recording_url),
       contactName: [p.first_name, p.last_name].filter(Boolean).join(" ") || p.full_name || null,
