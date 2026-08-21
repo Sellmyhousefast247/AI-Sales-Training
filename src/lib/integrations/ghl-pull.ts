@@ -229,6 +229,80 @@ export function noteToCandidate(contactId: string, note: any): CandidateCall | n
   };
 }
 
+/**
+ * WAVV (with "transcription to notes" enabled) posts the FULL call transcript
+ * into a contact note. Format isn't guaranteed, so detection is structural:
+ * a long note whose text is dominated by repeated dialogue speaker labels
+ * (or timestamped lines), and which is not one of the known WAVV/automation
+ * note types (summary, deal sheet, QC, assignment).
+ */
+export interface TranscriptNote {
+  noteId: string;
+  contactId: string;
+  dateAdded: string | null;
+  wavvUuid: string | null;
+  text: string;
+  wordCount: number;
+}
+
+/** Convert a (possibly HTML) note body to plain text with line breaks. */
+export function htmlNoteToText(body: string): string {
+  return String(body ?? "")
+    .replace(/<\s*(?:br|\/p|\/div|\/li|\/h[1-6])\s*\/?\s*>/gi, "\n")
+    .replace(/<[^>]+>/g, " ")
+    .replace(/&nbsp;/gi, " ")
+    .replace(/&amp;/gi, "&")
+    .replace(/&lt;/gi, "<")
+    .replace(/&gt;/gi, ">")
+    .replace(/&#0*39;|&apos;/gi, "'")
+    .replace(/&quot;/gi, '"')
+    .replace(/[ \t]+/g, " ")
+    .replace(/ ?\n ?/g, "\n")
+    .trim();
+}
+
+const NON_TRANSCRIPT_MARKERS =
+  /-{3,}\s*Summary\s*-{3,}|Motivation \(Go Deep!\)|QC UNDERWRITING|Lead assignment processed|Owner assigned to/i;
+
+export function looksLikeTranscriptNote(text: string): boolean {
+  if (!text || text.length < 600) return false;
+  if (NON_TRANSCRIPT_MARKERS.test(text)) return false;
+  // Dialogue signal 1: the SAME short speaker label repeats many times
+  // ("Agent:", "Rep:", "John:", "Speaker 1:").
+  const labelCounts = new Map<string, number>();
+  const labelRe = /(?:^|\n)\s*([A-Za-z][A-Za-z0-9 .'-]{0,24}):\s+\S/g;
+  let m: RegExpExecArray | null;
+  while ((m = labelRe.exec(text)) !== null) {
+    const label = m[1].trim().toLowerCase();
+    labelCounts.set(label, (labelCounts.get(label) ?? 0) + 1);
+  }
+  const maxRepeat = Math.max(0, ...labelCounts.values());
+  // Dialogue signal 2: timestamped lines ("[00:12]", "00:01:02").
+  const timestamps = (text.match(/\[?\b\d{1,2}:\d{2}(?::\d{2})?\b\]?/g) ?? []).length;
+  // Explicit header signal.
+  const headed = /transcript/i.test(text.slice(0, 120));
+  return maxRepeat >= 4 || timestamps >= 6 || (headed && maxRepeat >= 2);
+}
+
+export function noteToTranscript(contactId: string, note: any): TranscriptNote | null {
+  const raw = String(pick(note, "body", "content", "note") ?? "");
+  if (!raw || raw.length < 600) return null;
+  const text = htmlNoteToText(raw);
+  if (!looksLikeTranscriptNote(text)) return null;
+  const noteId = String(pick(note, "id", "noteId") ?? "");
+  if (!noteId) return null;
+  const wordCount = text.split(/\s+/).length;
+  if (wordCount < 120) return null; // too thin to be a >=10-min call transcript
+  return {
+    noteId,
+    contactId,
+    dateAdded: toIso(pick(note, "dateAdded", "createdAt", "date_added")),
+    wavvUuid: raw.match(/\[\s*WAVV:\s*([0-9a-f-]{10,})\s*\]/i)?.[1] ?? null,
+    text,
+    wordCount,
+  };
+}
+
 /** WAVV dialer calls attach the recording as a plain MP3 URL on the message. */
 function extractRecordingAttachment(msg: any): string | null {
   const atts = pick(msg, "attachments");
@@ -433,6 +507,26 @@ export async function pullGoHighLevelCalls(
   let notesDenied = 0;
   let notesFetched = 0;
   let wavvNotes = 0;
+  const transcriptNotes: TranscriptNote[] = [];
+  const usedTranscriptNoteIds = new Set<string>();
+  /** Best transcript note for a call: same WAVV uuid, else same contact closest in time (±6h). */
+  const findTranscriptFor = (cand: CandidateCall): TranscriptNote | null => {
+    let best: TranscriptNote | null = null;
+    let bestDelta = Infinity;
+    const callMs = cand.dateAdded ? new Date(cand.dateAdded).getTime() : null;
+    for (const tn of transcriptNotes) {
+      if (usedTranscriptNoteIds.has(tn.noteId)) continue;
+      if (cand.wavvUuid && tn.wavvUuid) {
+        if (tn.wavvUuid === cand.wavvUuid) return tn;
+        continue;
+      }
+      if (tn.contactId !== cand.contactId) continue;
+      if (callMs == null || !tn.dateAdded) { if (!best) best = tn; continue; }
+      const delta = Math.abs(new Date(tn.dateAdded).getTime() - callMs);
+      if (delta <= 6 * 3600_000 && delta < bestDelta) { best = tn; bestDelta = delta; }
+    }
+    return best;
+  };
   const noteErrors: string[] = [];
   for (const cid of noteContactIds) {
     if (overBudget()) {
@@ -455,6 +549,13 @@ export async function pullGoHighLevelCalls(
     }
     notesFetched += notes.length;
     for (const note of notes) {
+      const tn = noteToTranscript(cid, note);
+      if (tn) {
+        if (!tn.dateAdded || new Date(tn.dateAdded).getTime() >= candidateSinceMs) {
+          transcriptNotes.push(tn);
+        }
+        continue; // a transcript note is never a call-marker note
+      }
       const cand = noteToCandidate(cid, note);
       if (!cand) continue;
       wavvNotes++;
@@ -502,7 +603,7 @@ export async function pullGoHighLevelCalls(
     // Cheap dedup before any API-heavy work.
     const { data: existing } = await admin
       .from("calls")
-      .select("id, external_contact_id")
+      .select("id, external_contact_id, transcript_status")
       .eq("company_id", integration.company_id)
       .eq("imported_from", integration.provider)
       .eq("external_id", cand.messageId)
@@ -516,6 +617,45 @@ export async function pullGoHighLevelCalls(
           .from("calls")
           .update({ external_contact_id: cand.contactId })
           .eq("id", existing.id);
+      }
+      // A call previously created "awaiting audio" heals itself the moment
+      // WAVV posts the transcript note: attach the transcript and score.
+      // (WAVV posts the transcript minutes after the call, usually after the
+      // sync has already created the call — this branch is the common path.)
+      const ts = String((existing as any).transcript_status ?? "");
+      if (ts !== "ready" && processedHeavy < MAX_NEW_CALLS_PER_RUN && !overBudget()) {
+        const tn = findTranscriptFor(cand);
+        if (tn) {
+          processedHeavy++;
+          usedTranscriptNoteIds.add(tn.noteId);
+          try {
+            await admin.from("transcripts").delete().eq("call_id", existing.id);
+            await admin.from("transcripts").insert({
+              call_id: existing.id,
+              company_id: integration.company_id,
+              content: tn.text,
+              word_count: tn.wordCount,
+              source: "provider",
+            });
+            await admin
+              .from("calls")
+              .update({ transcript_status: "ready" })
+              .eq("id", existing.id);
+            await processCallMedia(admin, existing.id, { autoScore: cfg.auto_score ?? true });
+            summary.details.push({
+              external_id: cand.messageId,
+              status: "processed",
+              detail: `transcript attached from WAVV note (${tn.wordCount} words); scored`,
+            });
+          } catch (err: any) {
+            summary.failed++;
+            summary.details.push({
+              external_id: cand.messageId,
+              status: "failed",
+              detail: `transcript-note attach failed: ${String(err?.message ?? err).slice(0, 200)}`,
+            });
+          }
+        }
       }
       continue;
     }
@@ -545,6 +685,59 @@ export async function pullGoHighLevelCalls(
     processedHeavy++;
 
     try {
+      // 3a) Transcript note first (WAVV "transcription to notes"): if the
+      // call's transcript is already in a contact note, ingest + score with
+      // NO audio download and NO Deepgram at all.
+      const tnote = findTranscriptFor(cand);
+      if (tnote && cand.durationSec != null && cand.durationSec >= minDuration) {
+        usedTranscriptNoteIds.add(tnote.noteId);
+        const contact = cand.contactId
+          ? await lookupContact(opts_, contactCache, cand.contactId)
+          : null;
+        const repHints: string[] = [];
+        for (const uid of [cand.userId, pick(contact, "assignedTo", "assigned_to", "assignedUserId")]) {
+          if (!uid) continue;
+          repHints.push(String(uid));
+          const email = await lookupUserEmail(opts_, userEmailCache, String(uid));
+          if (email) repHints.push(email);
+        }
+        const norm: NormalizedInboundCall = {
+          externalId: cand.messageId,
+          callDatetime: cand.dateAdded,
+          direction: cand.direction,
+          durationSec: cand.durationSec,
+          repHints,
+          sellerName:
+            pick(contact, "name", "fullName") ??
+            [pick(contact, "firstName"), pick(contact, "lastName")].filter(Boolean).join(" ") ??
+            null,
+          sellerPhone: pick(contact, "phone") ?? null,
+          propertyAddress: pick(contact, "address1", "fullAddress") ?? null,
+          leadSource: pick(contact, "source") ?? null,
+          externalContactId: cand.contactId,
+          recordingUrl: cand.attachmentUrl ?? (cand.wavvUuid ? `wavv:${cand.wavvUuid}` : null),
+          transcript: tnote.text,
+        };
+        const outcome = await ingestNormalizedCall(admin, integration, norm);
+        summary.details.push({
+          external_id: cand.messageId,
+          status: outcome.status,
+          detail:
+            outcome.status === "created"
+              ? `created from WAVV transcript note (${tnote.wordCount} words); scoring`
+              : outcome.detail,
+        });
+        if (outcome.status === "created") {
+          summary.created++;
+          if (outcome.callId) {
+            await processCallMedia(admin, outcome.callId, { autoScore: cfg.auto_score ?? true });
+          }
+        } else if (outcome.status === "duplicate") summary.duplicates++;
+        else if (outcome.status === "failed") summary.failed++;
+        else summary.skipped++;
+        continue;
+      }
+
       // 3) Recording → Deepgram transcript. WAVV dialer calls carry the
       // recording as a public MP3 attachment on the message; the GHL
       // recording endpoint (which 422s for WAVV calls) is the fallback.
