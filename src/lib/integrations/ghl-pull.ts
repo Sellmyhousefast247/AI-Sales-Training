@@ -53,8 +53,10 @@ const MAX_NEW_CALLS_PER_RUN = 3;
  * what it has, and — critically — still advances the cursor. Without this,
  * one busy afternoon of SMS-blast conversations made every run overrun 300s,
  * die before the cursor update, and re-scan the same window forever.
+ * 190s leaves ~110s of headroom: one in-flight transcription/scoring pass
+ * started just under budget must still finish before the 300s hard kill.
  */
-const RUN_BUDGET_MS = 220_000;
+const RUN_BUDGET_MS = 190_000;
 /**
  * WAVV dialer calls often leave NO conversation message — the contact note is
  * the only trace. So notes can't be discovered only via message candidates:
@@ -400,6 +402,12 @@ export async function pullGoHighLevelCalls(
   const now = Date.now();
   const runStarted = Date.now();
   const overBudget = () => Date.now() - runStarted > RUN_BUDGET_MS;
+  // The GHL scan (conversation pages, per-conversation messages, per-contact
+  // notes) is unbounded API fan-out on a busy day. Cap it separately so the
+  // candidate-processing phase is always left real time to make progress —
+  // otherwise a scan-heavy run defers everything and the backlog never drains.
+  const SCAN_BUDGET_MS = 110_000;
+  const scanOverBudget = () => Date.now() - runStarted > SCAN_BUDGET_MS;
   const cursorIso: string | null = cfg.pull_cursor_iso ?? null;
   // Conversation-scan window: explicit lookback override (deep sweeps), else
   // cursor minus a generous overlap for WAVV's late syncs. A stale cursor is
@@ -422,7 +430,7 @@ export async function pullGoHighLevelCalls(
   // (opts.contactId) skips the scan and reads that contact's notes directly.
   const conversations: any[] = [];
   let startAfterDate: number | null = null;
-  for (let page = 0; !opts.contactId && page < MAX_CONVERSATION_PAGES && !overBudget(); page++) {
+  for (let page = 0; !opts.contactId && page < MAX_CONVERSATION_PAGES && !scanOverBudget(); page++) {
     const pageParam = startAfterDate ? `&startAfterDate=${startAfterDate}` : "";
     let batch: any[] = [];
     try {
@@ -450,11 +458,11 @@ export async function pullGoHighLevelCalls(
   // 2) Collect candidate call messages inside the candidate window.
   const candidates: CandidateCall[] = [];
   for (const conv of conversations) {
-    if (overBudget()) {
+    if (scanOverBudget()) {
       summary.details.push({
         external_id: "(budget)",
         status: "skipped",
-        detail: `run budget reached during message scan (${summary.scanned_conversations} conversations in)`,
+        detail: `scan budget reached during message scan (${summary.scanned_conversations} conversations in)`,
       });
       break;
     }
@@ -529,8 +537,8 @@ export async function pullGoHighLevelCalls(
   };
   const noteErrors: string[] = [];
   for (const cid of noteContactIds) {
-    if (overBudget()) {
-      if (noteErrors.length < 3) noteErrors.push("run budget reached during notes scan");
+    if (scanOverBudget()) {
+      if (noteErrors.length < 3) noteErrors.push("scan budget reached during notes scan");
       break;
     }
     let notes: any[] = [];
@@ -578,6 +586,9 @@ export async function pullGoHighLevelCalls(
     });
   }
   summary.candidate_calls = candidates.length;
+  console.log(
+    `[pull] scan ${Date.now() - runStarted}ms: convs=${conversations.length} candidates=${candidates.length} notesContacts=${noteContactIds.length} notes=${notesFetched} wavvNotes=${wavvNotes} transcriptNotes=${transcriptNotes.length}`
+  );
 
   // Note-sourced candidates first (they carry a guaranteed recording URL, so
   // heavy slots are never wasted), then oldest-first within each source.
@@ -598,8 +609,35 @@ export async function pullGoHighLevelCalls(
   let processedHeavy = 0;
   /** Oldest call deferred by the per-run cap — the cursor must not pass it. */
   let oldestDeferredIso: string | null = null;
+  const noteDeferred = (cand: CandidateCall) => {
+    if (cand.dateAdded && (!oldestDeferredIso || cand.dateAdded < oldestDeferredIso)) {
+      oldestDeferredIso = cand.dateAdded;
+    }
+  };
+  // Permanently-skipped junk (tiny clips, sub-minimum recordings), persisted in
+  // config so each junk clip is downloaded and probed exactly ONCE ever. Without
+  // this every 5-min run re-downloaded the same voicemail beeps across the whole
+  // 48h candidate window and burned the entire run budget doing it.
+  const junkIds = new Set<string>(Array.isArray(cfg.pull_junk_ids) ? (cfg.pull_junk_ids as string[]) : []);
+  let junkSkips = 0;
+  let budgetDeferred = 0;
 
   for (const cand of candidates) {
+    // Budget exhausted: defer WITHOUT touching the DB. A post-budget sweep of
+    // per-candidate dedup selects once pushed the run past the 300s hard kill,
+    // which forfeited the cursor update and re-ran the same window forever.
+    if (overBudget()) {
+      noteDeferred(cand);
+      budgetDeferred++;
+      summary.skipped++;
+      continue;
+    }
+    // Known junk from a previous run — don't even do the dedup select.
+    if (junkIds.has(cand.messageId)) {
+      junkSkips++;
+      summary.skipped++;
+      continue;
+    }
     // Cheap dedup before any API-heavy work.
     const { data: existing } = await admin
       .from("calls")
@@ -661,6 +699,7 @@ export async function pullGoHighLevelCalls(
     }
 
     if (cand.durationSec != null && cand.durationSec < minDuration) {
+      junkIds.add(cand.messageId); // known-short by metadata — skip forever
       summary.skipped++;
       summary.details.push({
         external_id: cand.messageId,
@@ -671,7 +710,7 @@ export async function pullGoHighLevelCalls(
     }
 
     if (processedHeavy >= MAX_NEW_CALLS_PER_RUN || overBudget()) {
-      if (!oldestDeferredIso && cand.dateAdded) oldestDeferredIso = cand.dateAdded;
+      noteDeferred(cand);
       summary.skipped++;
       summary.details.push({
         external_id: cand.messageId,
@@ -815,6 +854,7 @@ export async function pullGoHighLevelCalls(
       // deferred all real calls, and pinned the cursor (Aug 21-22 livelock).
       if (cand.durationSec == null && rec.bytes.byteLength < 500_000) {
         processedHeavy--;
+        junkIds.add(cand.messageId); // never probe this clip again
         summary.skipped++;
         summary.details.push({
           external_id: cand.messageId,
@@ -826,6 +866,7 @@ export async function pullGoHighLevelCalls(
       const t = await transcribeRecordingBuffer(rec.bytes, rec.contentType);
       if (t.durationSec != null && t.durationSec < minDuration) {
         processedHeavy--; // short call, no scoring done — refund the slot
+        junkIds.add(cand.messageId); // duration is final — never probe again
         summary.skipped++;
         summary.details.push({
           external_id: cand.messageId,
@@ -912,11 +953,21 @@ export async function pullGoHighLevelCalls(
     await admin
       .from("integrations")
       .update({
-        config_json: { ...cfg, pull_cursor_iso: newCursor, ghl_location_id: locationId },
+        config_json: {
+          ...cfg,
+          pull_cursor_iso: newCursor,
+          ghl_location_id: locationId,
+          // Junk registry, capped: old ids age out of the 48h candidate window
+          // long before they age out of this list.
+          pull_junk_ids: [...junkIds].slice(-800),
+        },
         last_sync_at: newCursor,
       })
       .eq("id", integration.id);
   }
 
+  console.log(
+    `[pull] done ${Date.now() - runStarted}ms: created=${summary.created} dup=${summary.duplicates} skipped=${summary.skipped} failed=${summary.failed} junkKnown=${junkSkips} budgetDeferred=${budgetDeferred} cursor=${summary.cursor ?? "(unchanged)"}`
+  );
   return summary;
 }
