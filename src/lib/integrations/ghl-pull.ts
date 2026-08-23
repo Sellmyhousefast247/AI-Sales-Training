@@ -807,8 +807,25 @@ export async function pullGoHighLevelCalls(
         });
         continue;
       }
+      // A >=10-min call is >=~500KB at any sane bitrate. When the message
+      // carries no duration metadata, a tiny file is a junk clip (voicemail
+      // beep, dropped call) — skip it BEFORE paying for transcription, and
+      // refund the heavy slot so real calls aren't starved. Without this,
+      // three tiny GHL-native clips per run consumed every heavy slot,
+      // deferred all real calls, and pinned the cursor (Aug 21-22 livelock).
+      if (cand.durationSec == null && rec.bytes.byteLength < 500_000) {
+        processedHeavy--;
+        summary.skipped++;
+        summary.details.push({
+          external_id: cand.messageId,
+          status: "skipped",
+          detail: `recording ${(rec.bytes.byteLength / 1024).toFixed(0)}KB — too small for a ${minDuration}s call`,
+        });
+        continue;
+      }
       const t = await transcribeRecordingBuffer(rec.bytes, rec.contentType);
       if (t.durationSec != null && t.durationSec < minDuration) {
+        processedHeavy--; // short call, no scoring done — refund the slot
         summary.skipped++;
         summary.details.push({
           external_id: cand.messageId,
