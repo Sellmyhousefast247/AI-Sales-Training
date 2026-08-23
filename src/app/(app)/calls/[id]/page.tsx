@@ -52,7 +52,18 @@ export default async function CallDetailPage({ params }: { params: Promise<{ id:
 
   return (
     <div className="space-y-6 p-8">
-      <Link href="/calls" className="text-sm text-ink-500 hover:text-ink-900">← Back to calls</Link>
+      <div className="flex items-center justify-between">
+        <Link href="/calls" className="text-sm text-ink-500 hover:text-ink-900">← Back to calls</Link>
+        {scorecard && (
+          <a
+            href={`/api/calls/${id}/report`}
+            className="rounded-md bg-ink-900 px-4 py-2 text-sm font-medium text-white hover:bg-ink-800"
+            title="Download this call review as a PDF to send to the rep"
+          >
+            Download PDF report
+          </a>
+        )}
+      </div>
 
       <header className="space-y-1">
         <h1 className="text-xl font-semibold">{call.seller_name ?? "Unknown seller"}</h1>
