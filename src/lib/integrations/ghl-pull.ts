@@ -403,11 +403,15 @@ export async function pullGoHighLevelCalls(
   const runStarted = Date.now();
   const overBudget = () => Date.now() - runStarted > RUN_BUDGET_MS;
   // The GHL scan (conversation pages, per-conversation messages, per-contact
-  // notes) is unbounded API fan-out on a busy day. Cap it separately so the
-  // candidate-processing phase is always left real time to make progress —
-  // otherwise a scan-heavy run defers everything and the backlog never drains.
-  const SCAN_BUDGET_MS = 110_000;
-  const scanOverBudget = () => Date.now() - runStarted > SCAN_BUDGET_MS;
+  // notes) is unbounded API fan-out, and GHL latency degrades to ~3s/request
+  // under load — one busy evening the message scan alone ate the whole 300s.
+  // Each phase gets its own deadline so the later, MORE important work always
+  // runs: notes (the only evidence of WAVV dialer calls) get time even when
+  // the message scan is starved, and candidate processing always gets ~60s+.
+  const MSG_SCAN_DEADLINE_MS = 55_000; // conversation pages + per-conv messages
+  const NOTES_SCAN_DEADLINE_MS = 130_000; // per-contact notes
+  const msgScanOverBudget = () => Date.now() - runStarted > MSG_SCAN_DEADLINE_MS;
+  const scanOverBudget = () => Date.now() - runStarted > NOTES_SCAN_DEADLINE_MS;
   const cursorIso: string | null = cfg.pull_cursor_iso ?? null;
   // Conversation-scan window: explicit lookback override (deep sweeps), else
   // cursor minus a generous overlap for WAVV's late syncs. A stale cursor is
@@ -430,7 +434,7 @@ export async function pullGoHighLevelCalls(
   // (opts.contactId) skips the scan and reads that contact's notes directly.
   const conversations: any[] = [];
   let startAfterDate: number | null = null;
-  for (let page = 0; !opts.contactId && page < MAX_CONVERSATION_PAGES && !scanOverBudget(); page++) {
+  for (let page = 0; !opts.contactId && page < MAX_CONVERSATION_PAGES && !msgScanOverBudget(); page++) {
     const pageParam = startAfterDate ? `&startAfterDate=${startAfterDate}` : "";
     let batch: any[] = [];
     try {
@@ -458,11 +462,11 @@ export async function pullGoHighLevelCalls(
   // 2) Collect candidate call messages inside the candidate window.
   const candidates: CandidateCall[] = [];
   for (const conv of conversations) {
-    if (scanOverBudget()) {
+    if (msgScanOverBudget()) {
       summary.details.push({
         external_id: "(budget)",
         status: "skipped",
-        detail: `scan budget reached during message scan (${summary.scanned_conversations} conversations in)`,
+        detail: `message-scan deadline reached (${summary.scanned_conversations} conversations in); notes scan still runs`,
       });
       break;
     }
