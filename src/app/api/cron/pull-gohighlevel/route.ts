@@ -61,14 +61,32 @@ async function run(req: NextRequest) {
   // per run, and only when the pull left enough of the 300s window.
   const retries = [];
   if (Date.now() - started < 120_000) {
-    const { data: stuck } = await admin
+    // Priority 1: transcript is READY but scoring never completed. A run killed
+    // at the 300s cap mid-scoring used to strand calls as "scoring" forever —
+    // nothing retried them (Sep 1: two note-transcribed calls sat unscored all
+    // afternoon). Includes "scoring": a genuinely in-flight scorer overlaps at
+    // most once and re-scoring is idempotent.
+    let { data: stuck } = await admin
       .from("calls")
       .select("id")
-      .or(
-        "and(transcript_status.in.(pending,failed),recording_path.not.is.null),and(transcript_status.eq.ready,scoring_status.in.(pending,failed))"
-      )
+      .eq("transcript_status", "ready")
+      .in("scoring_status", ["pending", "failed", "scoring"])
       .order("created_at", { ascending: true })
       .limit(1);
+    // Priority 2: audio not yet transcribed (e.g. "awaiting WAVV audio").
+    // Only when nothing needs scoring — this arm mostly fails while the WAVV
+    // key is dead, and it must never starve the scoring rescue above.
+    if (!stuck || stuck.length === 0) {
+      stuck = (
+        await admin
+          .from("calls")
+          .select("id")
+          .in("transcript_status", ["pending", "failed"])
+          .not("recording_path", "is", null)
+          .order("created_at", { ascending: false })
+          .limit(1)
+      ).data;
+    }
     for (const c of stuck ?? []) {
       try {
         retries.push({ call_id: c.id, ...(await processCallMedia(admin, c.id)) });
