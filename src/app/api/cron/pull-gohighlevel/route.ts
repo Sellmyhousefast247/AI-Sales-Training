@@ -60,7 +60,10 @@ async function run(req: NextRequest) {
   // WAVV audio" transcribe + score here once the WAVV API works). One call
   // per run, and only when the pull left enough of the 300s window.
   const retries = [];
-  if (Date.now() - started < 120_000) {
+  // 240s guard: full-budget pulls run ~190s, which starved the old 120s guard
+  // so the rescue never fired. Transcription commits even if scoring gets
+  // killed at 300s — the next run's Priority-1 rescue finishes the scoring.
+  if (Date.now() - started < 240_000) {
     // Priority 1: transcript is READY but scoring never completed. A run killed
     // at the 300s cap mid-scoring used to strand calls as "scoring" forever —
     // nothing retried them (Sep 1: two note-transcribed calls sat unscored all
