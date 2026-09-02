@@ -634,6 +634,18 @@ export async function pullGoHighLevelCalls(
       ? new Date(new Date(c.dateAdded).getTime() - c.durationSec * 1000).toISOString()
       : c.dateAdded;
 
+  // WAVV now logs every dialer call TWICE: a conversation message (no duration
+  // metadata) and a WAVV note (duration + uuid — the authority). The
+  // null-duration message twins used to each cost a download probe; at
+  // hundreds of dials/day that flooded the run budget and deferred every real
+  // call. Match them against their note twin in-memory and junk them for free.
+  const noteStarts = candidates
+    .filter((c) => c.source === "note" && c.contactId && c.dateAdded && c.durationSec != null)
+    .map((c) => ({
+      contactId: c.contactId as string,
+      startMs: new Date(c.dateAdded as string).getTime() - (c.durationSec as number) * 1000,
+    }));
+
   for (const cand of candidates) {
     // Budget exhausted: defer WITHOUT touching the DB. A post-budget sweep of
     // per-candidate dedup selects once pushed the run past the 300s hard kill,
@@ -650,10 +662,20 @@ export async function pullGoHighLevelCalls(
       summary.skipped++;
       continue;
     }
+    // Message twin of a WAVV note in this batch: the note carries the real
+    // duration and uuid, so this copy never needs a probe or a DB select.
+    if (cand.source === "message" && cand.durationSec == null && cand.contactId && cand.dateAdded) {
+      const t = new Date(cand.dateAdded).getTime();
+      if (noteStarts.some((n) => n.contactId === cand.contactId && Math.abs(n.startMs - t) < 8 * 60_000)) {
+        junkIds.add(cand.messageId);
+        summary.skipped++;
+        continue;
+      }
+    }
     // Cheap dedup before any API-heavy work.
     const { data: existing } = await admin
       .from("calls")
-      .select("id, external_contact_id, transcript_status")
+      .select("id, external_contact_id, transcript_status, recording_path")
       .eq("company_id", integration.company_id)
       .eq("imported_from", integration.provider)
       .eq("external_id", cand.messageId)
@@ -675,6 +697,39 @@ export async function pullGoHighLevelCalls(
       const ts = String((existing as any).transcript_status ?? "");
       if (ts !== "ready" && processedHeavy < MAX_NEW_CALLS_PER_RUN && !overBudget()) {
         const tn = findTranscriptFor(cand);
+        // No transcript note, but WAVV audio is reachable (working API key):
+        // transcribe + score the awaiting-audio call right here, inside the
+        // run's heavy slots. This is what actually drains "Upload" rows now —
+        // the post-run piggyback rarely gets time on busy days.
+        const rp = String((existing as any).recording_path ?? "");
+        if (!tn && (rp.startsWith("wavv:") || cand.wavvUuid)) {
+          processedHeavy++;
+          try {
+            if (!rp.startsWith("wavv:") && cand.wavvUuid) {
+              await admin
+                .from("calls")
+                .update({ recording_path: `wavv:${cand.wavvUuid}` })
+                .eq("id", existing.id);
+            }
+            const res = await processCallMedia(admin, existing.id, { autoScore: cfg.auto_score ?? true });
+            summary.details.push({
+              external_id: cand.messageId,
+              status: res.error ? "failed" : "processed",
+              detail: res.error
+                ? `audio heal failed: ${String(res.error).slice(0, 160)}`
+                : `transcribed from WAVV audio; scored=${res.scored}`,
+            });
+            if (res.error) summary.failed++;
+          } catch (err: any) {
+            summary.failed++;
+            summary.details.push({
+              external_id: cand.messageId,
+              status: "failed",
+              detail: `audio heal failed: ${String(err?.message ?? err).slice(0, 160)}`,
+            });
+          }
+          continue;
+        }
         if (tn) {
           processedHeavy++;
           usedTranscriptNoteIds.add(tn.noteId);
@@ -1015,9 +1070,10 @@ export async function pullGoHighLevelCalls(
           ...cfg,
           pull_cursor_iso: newCursor,
           ghl_location_id: locationId,
-          // Junk registry, capped: old ids age out of the 48h candidate window
-          // long before they age out of this list.
-          pull_junk_ids: [...junkIds].slice(-800),
+          // Junk registry. Cap must exceed the 48h candidate volume — WAVV's
+          // message+note double-logging pushed candidates past 2400/run and
+          // the old 800 cap thrashed (entries evicted while still in-window).
+          pull_junk_ids: [...junkIds].slice(-4000),
         },
         last_sync_at: newCursor,
       })
