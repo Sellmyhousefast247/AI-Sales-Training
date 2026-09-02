@@ -647,15 +647,6 @@ export async function pullGoHighLevelCalls(
     }));
 
   for (const cand of candidates) {
-    // Budget exhausted: defer WITHOUT touching the DB. A post-budget sweep of
-    // per-candidate dedup selects once pushed the run past the 300s hard kill,
-    // which forfeited the cursor update and re-ran the same window forever.
-    if (overBudget()) {
-      noteDeferred(cand);
-      budgetDeferred++;
-      summary.skipped++;
-      continue;
-    }
     // Known junk from a previous run — don't even do the dedup select.
     if (junkIds.has(cand.messageId)) {
       junkSkips++;
@@ -671,6 +662,22 @@ export async function pullGoHighLevelCalls(
         summary.skipped++;
         continue;
       }
+    }
+    // Known-short by metadata — free classification, register + skip forever.
+    // Runs BEFORE the budget gate so even a flooded run still registers the
+    // whole window in one pass (no details entry — there can be thousands).
+    if (cand.durationSec != null && cand.durationSec < minDuration) {
+      junkIds.add(cand.messageId);
+      summary.skipped++;
+      continue;
+    }
+    // Budget exhausted: defer WITHOUT touching the DB. Only candidates that
+    // still need DB/API work ever defer — the free checks above already ran.
+    if (overBudget()) {
+      noteDeferred(cand);
+      budgetDeferred++;
+      summary.skipped++;
+      continue;
     }
     // Cheap dedup before any API-heavy work.
     const { data: existing } = await admin
@@ -762,17 +769,6 @@ export async function pullGoHighLevelCalls(
           }
         }
       }
-      continue;
-    }
-
-    if (cand.durationSec != null && cand.durationSec < minDuration) {
-      junkIds.add(cand.messageId); // known-short by metadata — skip forever
-      summary.skipped++;
-      summary.details.push({
-        external_id: cand.messageId,
-        status: "skipped",
-        detail: `duration ${cand.durationSec}s < min ${minDuration}s`,
-      });
       continue;
     }
 
