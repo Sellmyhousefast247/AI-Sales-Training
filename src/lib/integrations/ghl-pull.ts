@@ -626,6 +626,14 @@ export async function pullGoHighLevelCalls(
   let junkSkips = 0;
   let budgetDeferred = 0;
 
+  /** Note timestamps are POST time (after the call); back them up by the
+   * call duration so stored call_datetime is the actual call start — which
+   * also makes cross-source twin matching symmetric. */
+  const callStartIso = (c: CandidateCall): string | null =>
+    c.dateAdded && c.source === "note" && c.durationSec
+      ? new Date(new Date(c.dateAdded).getTime() - c.durationSec * 1000).toISOString()
+      : c.dateAdded;
+
   for (const cand of candidates) {
     // Budget exhausted: defer WITHOUT touching the DB. A post-budget sweep of
     // per-candidate dedup selects once pushed the run past the 300s hard kill,
@@ -713,6 +721,52 @@ export async function pullGoHighLevelCalls(
       continue;
     }
 
+    // Cross-source dedup: since WAVV's integration update, the SAME dialer call
+    // arrives TWICE — as a GHL call message (timestamped at call START) and as
+    // a WAVV note (timestamped when the note posts, minutes AFTER the call
+    // ends). External ids differ, so the id-based dedup above can't see it and
+    // every call showed up doubled. Match on contact + estimated call start
+    // instead: for a note candidate, start = note time − duration. A +/-8-min
+    // window can never swallow a genuine follow-up call, because created calls
+    // are all >=10 min long — the next real call starts >=10 min later.
+    if (cand.contactId && cand.dateAdded) {
+      const candStartMs =
+        new Date(cand.dateAdded).getTime() -
+        (cand.source === "note" ? (cand.durationSec ?? 0) * 1000 : 0);
+      const { data: twin } = await admin
+        .from("calls")
+        .select("id, recording_path, transcript_status")
+        .eq("company_id", integration.company_id)
+        .eq("external_contact_id", cand.contactId)
+        .gte("call_datetime", new Date(candStartMs - 8 * 60_000).toISOString())
+        .lte("call_datetime", new Date(candStartMs + 8 * 60_000).toISOString())
+        .limit(1)
+        .maybeSingle();
+      if (twin) {
+        // Same call from the other source. If this side carries the WAVV uuid
+        // and the twin still lacks usable audio, gift it the uuid so the
+        // stuck-retry can transcribe + score it.
+        if (
+          cand.wavvUuid &&
+          twin.transcript_status !== "ready" &&
+          !String(twin.recording_path ?? "").startsWith("wavv:")
+        ) {
+          await admin
+            .from("calls")
+            .update({ recording_path: `wavv:${cand.wavvUuid}` })
+            .eq("id", twin.id);
+        }
+        junkIds.add(cand.messageId); // never re-evaluate this shadow copy
+        summary.duplicates++;
+        summary.details.push({
+          external_id: cand.messageId,
+          status: "skipped",
+          detail: "same call from the other source (message+note pair)",
+        });
+        continue;
+      }
+    }
+
     if (processedHeavy >= MAX_NEW_CALLS_PER_RUN || overBudget()) {
       noteDeferred(cand);
       summary.skipped++;
@@ -746,7 +800,7 @@ export async function pullGoHighLevelCalls(
         }
         const norm: NormalizedInboundCall = {
           externalId: cand.messageId,
-          callDatetime: cand.dateAdded,
+          callDatetime: callStartIso(cand),
           direction: cand.direction,
           durationSec: cand.durationSec,
           repHints,
@@ -809,7 +863,7 @@ export async function pullGoHighLevelCalls(
           }
           const norm: NormalizedInboundCall = {
             externalId: cand.messageId,
-            callDatetime: cand.dateAdded,
+            callDatetime: callStartIso(cand),
             direction: cand.direction,
             durationSec: cand.durationSec,
             repHints,
@@ -896,7 +950,7 @@ export async function pullGoHighLevelCalls(
 
       const norm: NormalizedInboundCall = {
         externalId: cand.messageId,
-        callDatetime: cand.dateAdded,
+        callDatetime: callStartIso(cand),
         direction: cand.direction,
         durationSec: cand.durationSec ?? t.durationSec ?? null,
         repHints,
