@@ -21,6 +21,21 @@ export async function GET(req: NextRequest) {
   const key = (process.env.WAVV_API_KEY ?? "").trim().replace(/^['"]|['"]$/g, "");
   if (!key) return NextResponse.json({ error: "WAVV_API_KEY not set" }, { status: 500 });
 
+  // ?path=/calls?direction=inbound&limit=10 — raw v3 probe with the real
+  // Bearer key only. For exploring how inbound-call recordings are addressed.
+  const rawPath = req.nextUrl.searchParams.get("path");
+  if (rawPath && rawPath.startsWith("/")) {
+    try {
+      const resp = await fetch(`https://api.wavv.com/v3${rawPath}`, {
+        headers: { Authorization: `Bearer ${key}`, Accept: "application/json" },
+      });
+      const text = (await resp.text()).replace(new RegExp(key, "g"), "***").slice(0, 4000);
+      return NextResponse.json({ path: rawPath, status: resp.status, body: text });
+    } catch (err: any) {
+      return NextResponse.json({ path: rawPath, status: "ERR", body: String(err?.message ?? err).slice(0, 200) });
+    }
+  }
+
   const uuid = req.nextUrl.searchParams.get("uuid");
   const bases = [
     "https://api.wavv.com/v3",
