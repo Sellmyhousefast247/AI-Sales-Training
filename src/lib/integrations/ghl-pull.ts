@@ -157,6 +157,25 @@ async function lookupContact(
   }
 }
 
+/**
+ * Lead source from the contact's src_* tag (e.g. src_facebook -> "facebook",
+ * src_ppl_motivatedsellers -> "ppl motivatedsellers"). Every contact gets one
+ * of these tags at intake; it is far more reliable than the free-form
+ * contact.source field, which is often blank or set to a form name.
+ */
+function srcTagOf(contact: any): string | null {
+  const tags = pick(contact, "tags");
+  if (!Array.isArray(tags)) return null;
+  for (const t of tags) {
+    const tag = String(t ?? "").trim();
+    if (/^src[_-]/i.test(tag)) {
+      const v = tag.replace(/^src[_-]/i, "").replace(/[_-]+/g, " ").trim();
+      if (v) return v;
+    }
+  }
+  return null;
+}
+
 /** Download a call recording; null when the message has none (404). */
 async function downloadRecording(
   opts: GhlClientOpts,
@@ -861,7 +880,7 @@ export async function pullGoHighLevelCalls(
             null,
           sellerPhone: pick(contact, "phone") ?? null,
           propertyAddress: pick(contact, "address1", "fullAddress") ?? null,
-          leadSource: pick(contact, "source") ?? null,
+          leadSource: srcTagOf(contact) ?? pick(contact, "source") ?? null,
           externalContactId: cand.contactId,
           recordingUrl: cand.attachmentUrl ?? (cand.wavvUuid ? `wavv:${cand.wavvUuid}` : null),
           transcript: tnote.text,
@@ -924,7 +943,7 @@ export async function pullGoHighLevelCalls(
               null,
             sellerPhone: pick(contact, "phone") ?? null,
             propertyAddress: pick(contact, "address1", "fullAddress") ?? null,
-            leadSource: pick(contact, "source") ?? null,
+            leadSource: srcTagOf(contact) ?? pick(contact, "source") ?? null,
             externalContactId: cand.contactId,
             recordingUrl: `wavv:${cand.wavvUuid}`,
             transcript: null,
@@ -1011,7 +1030,7 @@ export async function pullGoHighLevelCalls(
           null,
         sellerPhone: pick(contact, "phone") ?? null,
         propertyAddress: pick(contact, "address1", "fullAddress") ?? null,
-        leadSource: pick(contact, "source") ?? null,
+        leadSource: srcTagOf(contact) ?? pick(contact, "source") ?? null,
         externalContactId: cand.contactId,
         recordingUrl: cand.attachmentUrl, // playable WAVV MP3 when present
         transcript: t.formatted,
