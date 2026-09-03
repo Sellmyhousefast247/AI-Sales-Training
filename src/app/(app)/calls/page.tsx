@@ -5,6 +5,7 @@ import { getCurrentProfile } from "@/lib/queries";
 import { formatDateTime } from "@/lib/utils";
 import { StepChips, StepLegend, stepMap } from "@/components/StepChips";
 import { ScoreCell } from "./ScoreCell";
+import { RowActions } from "./RowActions";
 
 export default async function CallsListPage() {
   const profile = await getCurrentProfile();
@@ -15,7 +16,7 @@ export default async function CallsListPage() {
     supabase
       .from("calls")
       .select(`
-        id, call_datetime, call_type, lead_source, deal_outcome, seller_name, external_contact_id,
+        id, call_datetime, call_type, lead_source, deal_outcome, seller_name, external_contact_id, recording_duration_sec,
         reps:rep_id (id, full_name),
         scorecards!scorecards_call_id_fkey (id, final_score, average_score, is_current, step_scores (step, score))
       `)
@@ -33,6 +34,13 @@ export default async function CallsListPage() {
 
   // Base URL for deep-linking a seller to their GHL/XLeads contact profile.
   const ghlLocationId = (integration?.config_json as any)?.ghl_location_id ?? null;
+  const isAdmin = profile.role === "company_admin" || profile.role === "super_admin";
+  const fmtLength = (sec: number | null) => {
+    if (sec == null || sec <= 0) return "\u2014";
+    const m = Math.floor(sec / 60);
+    const r = Math.round(sec % 60);
+    return `${m}m ${String(r).padStart(2, "0")}s`;
+  };
   const contactUrl = (contactId: string | null) =>
     ghlLocationId && contactId
       ? `https://login.xleads.com/v2/location/${ghlLocationId}/contacts/detail/${contactId}`
@@ -67,6 +75,7 @@ export default async function CallsListPage() {
               <th className="px-4 py-3">Rep</th>
               <th className="px-4 py-3">Seller</th>
               <th className="px-4 py-3">Type</th>
+              <th className="px-4 py-3">Length</th>
               <th className="px-4 py-3">Source</th>
               <th className="px-4 py-3">Outcome</th>
               <th className="px-4 py-3">Road to a Deal</th>
@@ -82,12 +91,7 @@ export default async function CallsListPage() {
                     {formatDateTime(c.call_datetime)}
                   </td>
                   <td className="px-4 py-3">
-                    <Link
-                      href={`/calls/${c.id}`}
-                      className="rounded-md border border-ink-300 bg-ink-100 px-3 py-1 text-xs font-medium text-ink-800 hover:bg-ink-200"
-                    >
-                      View
-                    </Link>
+                    <RowActions callId={c.id} isAdmin={isAdmin} />
                   </td>
                   <td className="px-4 py-3">{c.reps?.full_name ?? "—"}</td>
                   <td className="px-4 py-3">
@@ -110,6 +114,7 @@ export default async function CallsListPage() {
                     })()}
                   </td>
                   <td className="px-4 py-3 capitalize">{c.call_type.replace("_", " ")}</td>
+                  <td className="px-4 py-3 whitespace-nowrap font-mono text-xs text-ink-700">{fmtLength(c.recording_duration_sec)}</td>
                   <td className="px-4 py-3">{c.lead_source ?? "—"}</td>
                   <td className="px-4 py-3 capitalize">{c.deal_outcome.replace("_", " ")}</td>
                   <td className="px-4 py-3">
@@ -128,7 +133,7 @@ export default async function CallsListPage() {
             })}
             {(rows?.length ?? 0) === 0 && (
               <tr>
-                <td colSpan={9} className="px-4 py-12 text-center text-ink-500">
+                <td colSpan={10} className="px-4 py-12 text-center text-ink-500">
                   No calls yet. <Link href="/calls/new" className="font-medium text-ink-900 hover:underline">Add your first call →</Link>
                 </td>
               </tr>
