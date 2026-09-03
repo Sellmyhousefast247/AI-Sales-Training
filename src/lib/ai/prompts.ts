@@ -124,6 +124,19 @@ OUTPUT
 You output a single JSON object using the score_call tool.
 Do not output anything else. Do not output prose outside the tool.`;
 
+/**
+ * The company reference script as its own system block, so score-call can mark
+ * it with cache_control. It is the largest constant chunk of every scoring
+ * request (~15k tokens for the V4 script) and identical call-to-call.
+ */
+export function buildScriptSystemBlock(scriptContent: string): string {
+  return `The company's reference sales script and knowledge base. When grading, treat it as the source of truth for what the rep SHOULD have said and done:
+
+<COMPANY_SCRIPT>
+${scriptContent}
+</COMPANY_SCRIPT>`;
+}
+
 export function buildUserMessage(args: {
   companyName: string;
   repName: string;
@@ -135,15 +148,10 @@ export function buildUserMessage(args: {
   scriptContent?: string | null;
   presetOverrides?: string | null;
 }) {
-  const scriptBlock = args.scriptContent
-    ? `<COMPANY_SCRIPT>
-${args.scriptContent}
-</COMPANY_SCRIPT>
-
-`
-    : "";
-
-  return `${scriptBlock}Call metadata:
+  // NOTE: the company script is NOT embedded here anymore — it rides as a
+  // prompt-cached system block (see buildScriptSystemBlock) so its ~15k tokens
+  // are billed at 10% on cache hits instead of full price on every score.
+  return `Call metadata:
 - Company: ${args.companyName}
 - Rep: ${args.repName}
 - Call type: ${args.callType}

@@ -2,6 +2,7 @@ import Anthropic from "@anthropic-ai/sdk";
 import {
   SCORING_SYSTEM_PROMPT,
   SCORE_CALL_TOOL,
+  buildScriptSystemBlock,
   buildUserMessage,
 } from "./prompts";
 import { scorecardOutputSchema, type ParsedScorecard } from "./schema";
@@ -61,16 +62,37 @@ export async function scoreCall(input: ScoreCallInput): Promise<ScoreCallResult>
   const attempt = async (temperature: number, nudge: boolean) => {
     const resp = await client().messages.create({
       model: MODEL,
-      max_tokens: 32000,
+      // A valid scorecard is ~4-6k output tokens. 12k leaves generous room
+      // while capping the cost of a pathological run at ~1/3 of the old 32k
+      // ceiling (output is the expensive side: $15/M on sonnet). The
+      // max_tokens truncation guard below still retries the rare overflow.
+      max_tokens: 12000,
       temperature,
       // Prompt caching uses a SDK property the 0.32.x types don't yet
-      // expose; cast keeps the runtime API call shape correct.
+      // expose; cast keeps the runtime API call shape correct. cache_control
+      // on the LAST system block caches the whole prefix (system prompt +
+      // company script — the ~18k-token constant part of every request), so
+      // back-to-back scorings bill that chunk at 10%.
       system: [
         {
           type: "text",
           text: SCORING_SYSTEM_PROMPT,
-          cache_control: { type: "ephemeral" },
         } as unknown as Anthropic.TextBlockParam,
+        ...(input.scriptContent
+          ? [
+              {
+                type: "text",
+                text: buildScriptSystemBlock(input.scriptContent),
+                cache_control: { type: "ephemeral" },
+              } as unknown as Anthropic.TextBlockParam,
+            ]
+          : [
+              {
+                type: "text",
+                text: "No company reference script provided.",
+                cache_control: { type: "ephemeral" },
+              } as unknown as Anthropic.TextBlockParam,
+            ]),
       ],
       tools: [SCORE_CALL_TOOL as unknown as Anthropic.Tool],
       tool_choice: { type: "tool", name: "score_call" },
