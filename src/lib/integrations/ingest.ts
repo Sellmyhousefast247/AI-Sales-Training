@@ -2,7 +2,7 @@ import type { SupabaseClient } from "@supabase/supabase-js";
 import type { IntegrationRow, NormalizedInboundCall } from "./types";
 import { transcribeRecordingBuffer, transcriptionConfigured } from "@/lib/transcription/deepgram";
 import { runScoringForCall } from "@/lib/scoring/run-scoring";
-import { fetchWavvRecording, wavvConfigured } from "./wavv";
+import { fetchWavvRecording, findRecordedWavvCallId, wavvConfigured } from "./wavv";
 
 export interface IngestOutcome {
   externalId: string;
@@ -154,7 +154,7 @@ export async function processCallMedia(
 
   const { data: call } = await admin
     .from("calls")
-    .select("id, company_id, call_type, recording_path, transcript_status, scoring_status")
+    .select("id, company_id, call_type, recording_path, transcript_status, scoring_status, seller_phone, call_datetime")
     .eq("id", callId)
     .single();
   if (!call) return { transcribed: false, scored: false, error: "call not found" };
@@ -186,8 +186,22 @@ export async function processCallMedia(
       if (call.recording_path.startsWith("wavv:")) {
         // Calls created "awaiting WAVV audio" — fetch via the WAVV API.
         if (!wavvConfigured()) throw new Error("WAVV_API_KEY not configured");
-        const rec = await fetchWavvRecording(call.recording_path.slice(5));
-        if (!rec) throw new Error("WAVV recording not available (API key rejected or recording missing)");
+        let rec = await fetchWavvRecording(call.recording_path.slice(5));
+        // INBOUND (seller-callback) calls: the note's [ WAVV: <uuid> ] is NOT a
+        // valid API call id, so the direct fetch 404s. Recover by matching the
+        // WAVV call list on the seller's phone + call time and fetching that
+        // real call's recording. (Also covers any future note-id drift.)
+        if (!rec) {
+          const matchedId = await findRecordedWavvCallId(
+            (call as any).seller_phone ?? null,
+            (call as any).call_datetime ?? null
+          );
+          if (matchedId) rec = await fetchWavvRecording(matchedId);
+        }
+        if (!rec)
+          throw new Error(
+            "WAVV recording not available — the note's call id is not in WAVV's API and no matching recorded call was found (common for inbound calls WAVV has not exposed to the API)."
+          );
         bytes = rec.bytes;
         contentType = rec.contentType;
       } else {

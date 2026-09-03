@@ -68,15 +68,24 @@ export interface WavvCall {
   recorded?: boolean;
 }
 
-/** List team calls, newest first. `startedAfterIso` bounds the window. */
+/** Normalize a phone to its last 10 digits for matching (strips +1, spaces). */
+function last10(phone: unknown): string {
+  return String(phone ?? "").replace(/\D/g, "").slice(-10);
+}
+
+/**
+ * List team calls for ONE direction, newest first. WAVV v3 REQUIRES the
+ * `direction` param (inbound|outbound) — a bare /calls now 400s, which had
+ * silently disabled the older list-based recovery.
+ */
 export async function listWavvCalls(
-  startedAfterIso: string,
+  direction: "inbound" | "outbound",
   maxPages = 5
 ): Promise<WavvCall[]> {
   const out: WavvCall[] = [];
   let cursor: string | null = null;
   for (let page = 0; page < maxPages; page++) {
-    const qs = new URLSearchParams({ startedAfter: startedAfterIso, limit: "200" });
+    const qs = new URLSearchParams({ direction, limit: "50" });
     if (cursor) qs.set("cursor", cursor);
     const resp = await wavvJson(`/calls?${qs.toString()}`);
     if (!resp || resp.status !== 200 || !Array.isArray(resp.data?.data)) break;
@@ -85,6 +94,40 @@ export async function listWavvCalls(
     if (!cursor) break;
   }
   return out;
+}
+
+/**
+ * Recover a call id when the GHL note's `[ WAVV: <uuid> ]` is NOT a valid WAVV
+ * API call id — which is the case for INBOUND (seller-callback) calls: their
+ * note uuid 404s on /calls/{id}, but the real recorded call is in the WAVV
+ * call list. Match by the contact's phone (last 10 digits) closest in time to
+ * the call, within a window, preferring a recorded call. Searches inbound
+ * first (the common case for a bad note uuid), then outbound.
+ */
+export async function findRecordedWavvCallId(
+  phone: string | null,
+  aroundIso: string | null,
+  windowMin = 20
+): Promise<string | null> {
+  const want = last10(phone);
+  if (!want || !aroundIso) return null;
+  const anchor = new Date(aroundIso).getTime();
+  if (Number.isNaN(anchor)) return null;
+  let best: { id: string; delta: number; recorded: boolean } | null = null;
+  for (const dir of ["inbound", "outbound"] as const) {
+    for (const c of await listWavvCalls(dir)) {
+      if (last10(c.phone) !== want || !c.startedAt || !c.id) continue;
+      const delta = Math.abs(new Date(c.startedAt).getTime() - anchor);
+      if (delta > windowMin * 60_000) continue;
+      const rec = Boolean(c.recorded);
+      // Prefer a recorded call; among those, the closest in time.
+      if (!best || (rec && !best.recorded) || (rec === best.recorded && delta < best.delta)) {
+        best = { id: c.id, delta, recorded: rec };
+      }
+    }
+    if (best?.recorded) break; // good enough — a recorded match in this direction
+  }
+  return best?.recorded ? best.id : null;
 }
 
 /**
