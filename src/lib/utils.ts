@@ -10,22 +10,28 @@ export function formatScore(n: number | null | undefined): string {
   return n.toFixed(1);
 }
 
+// Pages are server-rendered on Vercel (UTC), so date formatting MUST pin the
+// company's timezone — otherwise every call shows ~5-6 hours in the future.
+const COMPANY_TZ = "America/Chicago";
+
 export function formatDateTime(iso: string): string {
   const d = new Date(iso);
-  return d.toLocaleString(undefined, {
+  return d.toLocaleString("en-US", {
     month: "short",
     day: "numeric",
     hour: "numeric",
     minute: "2-digit",
+    timeZone: COMPANY_TZ,
   });
 }
 
 export function formatDate(iso: string): string {
   const d = new Date(iso);
-  return d.toLocaleDateString(undefined, {
+  return d.toLocaleDateString("en-US", {
     month: "short",
     day: "numeric",
     year: "numeric",
+    timeZone: COMPANY_TZ,
   });
 }
 
