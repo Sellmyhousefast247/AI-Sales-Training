@@ -43,6 +43,8 @@ export async function GET(_req: NextRequest, ctx: { params: Promise<{ id: string
       `)
       .eq("call_id", id)
       .eq("is_current", true)
+      .order("created_at", { ascending: false })
+      .limit(1)
       .maybeSingle(),
   ]);
 
