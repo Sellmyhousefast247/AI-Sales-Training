@@ -3,7 +3,6 @@ import { notFound, redirect } from "next/navigation";
 import { createSupabaseServerClient } from "@/lib/supabase/server";
 import { getCurrentProfile } from "@/lib/queries";
 import { ScorecardView } from "@/components/ScorecardView";
-import { PasteTranscript } from "./PasteTranscript";
 import { formatDateTime } from "@/lib/utils";
 import type {
   RoadStep,
@@ -48,6 +47,8 @@ export default async function CallDetailPage({ params }: { params: Promise<{ id:
       `)
       .eq("call_id", id)
       .eq("is_current", true)
+      .order("created_at", { ascending: false })
+      .limit(1)
       .maybeSingle(),
   ]);
 
@@ -110,10 +111,7 @@ export default async function CallDetailPage({ params }: { params: Promise<{ id:
           repNotes={scorecard.coaching_notes_rep ?? ""}
         />
       ) : (
-        <>
-          <ScoreStatus status={call.scoring_status} callId={call.id} />
-          <PasteTranscript callId={call.id} />
-        </>
+        <ScoreStatus status={call.scoring_status} callId={call.id} />
       )}
 
       {transcript?.content && (
