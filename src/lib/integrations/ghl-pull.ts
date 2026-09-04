@@ -157,25 +157,6 @@ async function lookupContact(
   }
 }
 
-/**
- * Lead source from the contact's src_* tag (e.g. src_facebook -> "facebook",
- * src_ppl_motivatedsellers -> "ppl motivatedsellers"). Every contact gets one
- * of these tags at intake; it is far more reliable than the free-form
- * contact.source field, which is often blank or set to a form name.
- */
-function srcTagOf(contact: any): string | null {
-  const tags = pick(contact, "tags");
-  if (!Array.isArray(tags)) return null;
-  for (const t of tags) {
-    const tag = String(t ?? "").trim();
-    if (/^src[_-]/i.test(tag)) {
-      const v = tag.replace(/^src[_-]/i, "").replace(/[_-]+/g, " ").trim();
-      if (v) return v;
-    }
-  }
-  return null;
-}
-
 /** Download a call recording; null when the message has none (404). */
 async function downloadRecording(
   opts: GhlClientOpts,
@@ -623,11 +604,11 @@ export async function pullGoHighLevelCalls(
 
   const userEmailCache = new Map<string, string | null>();
   const contactCache = new Map<string, any>();
-  // Only auto-ingest/score calls that are at least 10 minutes long. Shorter
+  // Only auto-ingest/score calls that are at least 15 minutes long. Shorter
   // calls are almost never real sales conversations, so scoring them wastes
   // transcription + model spend. Enforced as a hard floor: config may raise the
-  // threshold but not lower it below 10 minutes.
-  const MIN_SCORE_DURATION_SEC = 600;
+  // threshold but not lower it below 15 minutes.
+  const MIN_SCORE_DURATION_SEC = 900;
   const minDuration = Math.max(MIN_SCORE_DURATION_SEC, cfg.min_duration_sec ?? 0);
   let processedHeavy = 0;
   /** Oldest call deferred by the per-run cap — the cursor must not pass it. */
@@ -645,63 +626,26 @@ export async function pullGoHighLevelCalls(
   let junkSkips = 0;
   let budgetDeferred = 0;
 
-  /** Note timestamps are POST time (after the call); back them up by the
-   * call duration so stored call_datetime is the actual call start — which
-   * also makes cross-source twin matching symmetric. */
-  const callStartIso = (c: CandidateCall): string | null =>
-    c.dateAdded && c.source === "note" && c.durationSec
-      ? new Date(new Date(c.dateAdded).getTime() - c.durationSec * 1000).toISOString()
-      : c.dateAdded;
-
-  // WAVV now logs every dialer call TWICE: a conversation message (no duration
-  // metadata) and a WAVV note (duration + uuid — the authority). The
-  // null-duration message twins used to each cost a download probe; at
-  // hundreds of dials/day that flooded the run budget and deferred every real
-  // call. Match them against their note twin in-memory and junk them for free.
-  const noteStarts = candidates
-    .filter((c) => c.source === "note" && c.contactId && c.dateAdded && c.durationSec != null)
-    .map((c) => ({
-      contactId: c.contactId as string,
-      startMs: new Date(c.dateAdded as string).getTime() - (c.durationSec as number) * 1000,
-    }));
-
   for (const cand of candidates) {
-    // Known junk from a previous run — don't even do the dedup select.
-    if (junkIds.has(cand.messageId)) {
-      junkSkips++;
-      summary.skipped++;
-      continue;
-    }
-    // Message twin of a WAVV note in this batch: the note carries the real
-    // duration and uuid, so this copy never needs a probe or a DB select.
-    if (cand.source === "message" && cand.durationSec == null && cand.contactId && cand.dateAdded) {
-      const t = new Date(cand.dateAdded).getTime();
-      if (noteStarts.some((n) => n.contactId === cand.contactId && Math.abs(n.startMs - t) < 8 * 60_000)) {
-        junkIds.add(cand.messageId);
-        summary.skipped++;
-        continue;
-      }
-    }
-    // Known-short by metadata — free classification, register + skip forever.
-    // Runs BEFORE the budget gate so even a flooded run still registers the
-    // whole window in one pass (no details entry — there can be thousands).
-    if (cand.durationSec != null && cand.durationSec < minDuration) {
-      junkIds.add(cand.messageId);
-      summary.skipped++;
-      continue;
-    }
-    // Budget exhausted: defer WITHOUT touching the DB. Only candidates that
-    // still need DB/API work ever defer — the free checks above already ran.
+    // Budget exhausted: defer WITHOUT touching the DB. A post-budget sweep of
+    // per-candidate dedup selects once pushed the run past the 300s hard kill,
+    // which forfeited the cursor update and re-ran the same window forever.
     if (overBudget()) {
       noteDeferred(cand);
       budgetDeferred++;
       summary.skipped++;
       continue;
     }
+    // Known junk from a previous run — don't even do the dedup select.
+    if (junkIds.has(cand.messageId)) {
+      junkSkips++;
+      summary.skipped++;
+      continue;
+    }
     // Cheap dedup before any API-heavy work.
     const { data: existing } = await admin
       .from("calls")
-      .select("id, external_contact_id, transcript_status, recording_path")
+      .select("id, external_contact_id, transcript_status")
       .eq("company_id", integration.company_id)
       .eq("imported_from", integration.provider)
       .eq("external_id", cand.messageId)
@@ -723,39 +667,6 @@ export async function pullGoHighLevelCalls(
       const ts = String((existing as any).transcript_status ?? "");
       if (ts !== "ready" && processedHeavy < MAX_NEW_CALLS_PER_RUN && !overBudget()) {
         const tn = findTranscriptFor(cand);
-        // No transcript note, but WAVV audio is reachable (working API key):
-        // transcribe + score the awaiting-audio call right here, inside the
-        // run's heavy slots. This is what actually drains "Upload" rows now —
-        // the post-run piggyback rarely gets time on busy days.
-        const rp = String((existing as any).recording_path ?? "");
-        if (!tn && (rp.startsWith("wavv:") || cand.wavvUuid)) {
-          processedHeavy++;
-          try {
-            if (!rp.startsWith("wavv:") && cand.wavvUuid) {
-              await admin
-                .from("calls")
-                .update({ recording_path: `wavv:${cand.wavvUuid}` })
-                .eq("id", existing.id);
-            }
-            const res = await processCallMedia(admin, existing.id, { autoScore: cfg.auto_score ?? true });
-            summary.details.push({
-              external_id: cand.messageId,
-              status: res.error ? "failed" : "processed",
-              detail: res.error
-                ? `audio heal failed: ${String(res.error).slice(0, 160)}`
-                : `transcribed from WAVV audio; scored=${res.scored}`,
-            });
-            if (res.error) summary.failed++;
-          } catch (err: any) {
-            summary.failed++;
-            summary.details.push({
-              external_id: cand.messageId,
-              status: "failed",
-              detail: `audio heal failed: ${String(err?.message ?? err).slice(0, 160)}`,
-            });
-          }
-          continue;
-        }
         if (tn) {
           processedHeavy++;
           usedTranscriptNoteIds.add(tn.noteId);
@@ -791,50 +702,15 @@ export async function pullGoHighLevelCalls(
       continue;
     }
 
-    // Cross-source dedup: since WAVV's integration update, the SAME dialer call
-    // arrives TWICE — as a GHL call message (timestamped at call START) and as
-    // a WAVV note (timestamped when the note posts, minutes AFTER the call
-    // ends). External ids differ, so the id-based dedup above can't see it and
-    // every call showed up doubled. Match on contact + estimated call start
-    // instead: for a note candidate, start = note time − duration. A +/-8-min
-    // window can never swallow a genuine follow-up call, because created calls
-    // are all >=10 min long — the next real call starts >=10 min later.
-    if (cand.contactId && cand.dateAdded) {
-      const candStartMs =
-        new Date(cand.dateAdded).getTime() -
-        (cand.source === "note" ? (cand.durationSec ?? 0) * 1000 : 0);
-      const { data: twin } = await admin
-        .from("calls")
-        .select("id, recording_path, transcript_status")
-        .eq("company_id", integration.company_id)
-        .eq("external_contact_id", cand.contactId)
-        .gte("call_datetime", new Date(candStartMs - 8 * 60_000).toISOString())
-        .lte("call_datetime", new Date(candStartMs + 8 * 60_000).toISOString())
-        .limit(1)
-        .maybeSingle();
-      if (twin) {
-        // Same call from the other source. If this side carries the WAVV uuid
-        // and the twin still lacks usable audio, gift it the uuid so the
-        // stuck-retry can transcribe + score it.
-        if (
-          cand.wavvUuid &&
-          twin.transcript_status !== "ready" &&
-          !String(twin.recording_path ?? "").startsWith("wavv:")
-        ) {
-          await admin
-            .from("calls")
-            .update({ recording_path: `wavv:${cand.wavvUuid}` })
-            .eq("id", twin.id);
-        }
-        junkIds.add(cand.messageId); // never re-evaluate this shadow copy
-        summary.duplicates++;
-        summary.details.push({
-          external_id: cand.messageId,
-          status: "skipped",
-          detail: "same call from the other source (message+note pair)",
-        });
-        continue;
-      }
+    if (cand.durationSec != null && cand.durationSec < minDuration) {
+      junkIds.add(cand.messageId); // known-short by metadata — skip forever
+      summary.skipped++;
+      summary.details.push({
+        external_id: cand.messageId,
+        status: "skipped",
+        detail: `duration ${cand.durationSec}s < min ${minDuration}s`,
+      });
+      continue;
     }
 
     if (processedHeavy >= MAX_NEW_CALLS_PER_RUN || overBudget()) {
@@ -870,7 +746,7 @@ export async function pullGoHighLevelCalls(
         }
         const norm: NormalizedInboundCall = {
           externalId: cand.messageId,
-          callDatetime: callStartIso(cand),
+          callDatetime: cand.dateAdded,
           direction: cand.direction,
           durationSec: cand.durationSec,
           repHints,
@@ -880,7 +756,7 @@ export async function pullGoHighLevelCalls(
             null,
           sellerPhone: pick(contact, "phone") ?? null,
           propertyAddress: pick(contact, "address1", "fullAddress") ?? null,
-          leadSource: srcTagOf(contact) ?? pick(contact, "source") ?? null,
+          leadSource: pick(contact, "source") ?? null,
           externalContactId: cand.contactId,
           recordingUrl: cand.attachmentUrl ?? (cand.wavvUuid ? `wavv:${cand.wavvUuid}` : null),
           transcript: tnote.text,
@@ -933,7 +809,7 @@ export async function pullGoHighLevelCalls(
           }
           const norm: NormalizedInboundCall = {
             externalId: cand.messageId,
-            callDatetime: callStartIso(cand),
+            callDatetime: cand.dateAdded,
             direction: cand.direction,
             durationSec: cand.durationSec,
             repHints,
@@ -943,7 +819,7 @@ export async function pullGoHighLevelCalls(
               null,
             sellerPhone: pick(contact, "phone") ?? null,
             propertyAddress: pick(contact, "address1", "fullAddress") ?? null,
-            leadSource: srcTagOf(contact) ?? pick(contact, "source") ?? null,
+            leadSource: pick(contact, "source") ?? null,
             externalContactId: cand.contactId,
             recordingUrl: `wavv:${cand.wavvUuid}`,
             transcript: null,
@@ -1020,7 +896,7 @@ export async function pullGoHighLevelCalls(
 
       const norm: NormalizedInboundCall = {
         externalId: cand.messageId,
-        callDatetime: callStartIso(cand),
+        callDatetime: cand.dateAdded,
         direction: cand.direction,
         durationSec: cand.durationSec ?? t.durationSec ?? null,
         repHints,
@@ -1030,7 +906,7 @@ export async function pullGoHighLevelCalls(
           null,
         sellerPhone: pick(contact, "phone") ?? null,
         propertyAddress: pick(contact, "address1", "fullAddress") ?? null,
-        leadSource: srcTagOf(contact) ?? pick(contact, "source") ?? null,
+        leadSource: pick(contact, "source") ?? null,
         externalContactId: cand.contactId,
         recordingUrl: cand.attachmentUrl, // playable WAVV MP3 when present
         transcript: t.formatted,
@@ -1085,10 +961,9 @@ export async function pullGoHighLevelCalls(
           ...cfg,
           pull_cursor_iso: newCursor,
           ghl_location_id: locationId,
-          // Junk registry. Cap must exceed the 48h candidate volume — WAVV's
-          // message+note double-logging pushed candidates past 2400/run and
-          // the old 800 cap thrashed (entries evicted while still in-window).
-          pull_junk_ids: [...junkIds].slice(-4000),
+          // Junk registry, capped: old ids age out of the 48h candidate window
+          // long before they age out of this list.
+          pull_junk_ids: [...junkIds].slice(-800),
         },
         last_sync_at: newCursor,
       })
