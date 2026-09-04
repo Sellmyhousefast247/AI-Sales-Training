@@ -7,6 +7,7 @@ import { ScoreTrendChart } from "@/components/ScoreTrendChart";
 import { formatDateTime, formatScore } from "@/lib/utils";
 import { ROAD_TO_DEAL_STEPS, STEP_LABELS, STEP_NUMBER, type RoadStep, type Tier } from "@/lib/types";
 import { StepCell, StepLegend, stepMap, stepStatus } from "@/components/StepChips";
+import { CloserProfile } from "@/components/CloserProfile";
 
 export default async function RepProfilePage({ params }: { params: Promise<{ id: string }> }) {
   const { id } = await params;
@@ -59,10 +60,8 @@ export default async function RepProfilePage({ params }: { params: Promise<{ id:
     stepAgg.set(k, cur);
   }
   const stepAverages = [...stepAgg.entries()]
-    .map(([step, v]) => ({ step, avg: v.sum / v.n }))
+    .map(([step, v]) => ({ step, avg: v.sum / v.n, n: v.n }))
     .sort((a, b) => b.avg - a.avg);
-  const strongest = stepAverages[0];
-  const weakest = stepAverages[stepAverages.length - 1];
 
   return (
     <div className="space-y-6 p-8">
@@ -99,20 +98,7 @@ export default async function RepProfilePage({ params }: { params: Promise<{ id:
         )}
       </section>
 
-      <section className="grid gap-4 md:grid-cols-2">
-        <div className="rounded-lg border border-ink-200 bg-white p-5">
-          <div className="text-xs uppercase tracking-wide text-ink-500">Strongest step</div>
-          <div className="mt-1 text-lg font-semibold">
-            {strongest ? `${STEP_LABELS[strongest.step]} · ${formatScore(strongest.avg)}` : "—"}
-          </div>
-        </div>
-        <div className="rounded-lg border border-ink-200 bg-white p-5">
-          <div className="text-xs uppercase tracking-wide text-ink-500">Weakest step</div>
-          <div className="mt-1 text-lg font-semibold">
-            {weakest ? `${STEP_LABELS[weakest.step]} · ${formatScore(weakest.avg)}` : "—"}
-          </div>
-        </div>
-      </section>
+      <CloserProfile repFirstName={rep.full_name.split(" ")[0]} stepAverages={stepAverages} />
 
       <section className="rounded-lg border border-ink-200 bg-white p-5">
         <div className="mb-1 text-sm font-semibold">Road to a Deal — call by call</div>
