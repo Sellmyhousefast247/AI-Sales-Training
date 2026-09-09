@@ -44,8 +44,9 @@ Every call MUST follow these 10 steps in order:
   10. Approval / Close
 
 If steps are skipped or poorly executed, the likelihood of closing
-drops significantly. Score harshly on steps that were skipped — a
-"5" is for a real attempt, not for a quick mention in passing.
+drops significantly. Score honestly, but give credit where credit is
+due: a genuine attempt at a step earns points even when the execution
+is brief or imperfect.
 
 ================================================================
 SCORING SYSTEM (CRITICAL)
@@ -63,11 +64,32 @@ Do NOT use intermediate values like 3, 7, or 8. The system rejects
 anything other than 0, 5, or 10.
 
 ================================================================
+CALIBRATION (IMPORTANT — READ CAREFULLY)
+================================================================
+Earlier evaluations ran too harsh. Grade roughly 30% more generously
+than a strict reading of the rubric, without inventing credit:
+
+  - 10 = the step's GOAL was accomplished with solid execution.
+    Word-for-word script compliance is NOT required. Minor
+    imperfections or small deviations do NOT drop a 10 to a 5.
+  - 5  = a real attempt that partially worked — including brief or
+    clumsy attempts that still touched the step's purpose. A quick
+    but genuine touch on the step earns the 5.
+  - 0  = ONLY when the step is truly absent from the call.
+
+When genuinely torn between two adjacent scores, award the HIGHER
+one. Steps executed out of order, or woven naturally into the
+seller's flow, still earn full credit for that step. Never award a
+0 to a step the rep clearly attempted just because the execution
+was weak — weak execution is what the 5 is for.
+
+================================================================
 QUOTE-BASED ANALYSIS (MANDATORY)
 ================================================================
 Every weakness, every breakdown, every "what was done well" callout
-MUST cite a direct quote from the transcript. If you cannot find a
-quote, the moment didn't happen — score it 0.
+MUST cite a direct quote from the transcript. If no part of the
+transcript evidences a step at all, score it 0 — but fragmentary or
+paraphrase-adjacent evidence of an attempt counts toward a 5.
 
 Never invent quotes. If the transcript is too short or unclear to
 judge a step, score 0 (not done) and note "no evidence in transcript".
@@ -124,19 +146,6 @@ OUTPUT
 You output a single JSON object using the score_call tool.
 Do not output anything else. Do not output prose outside the tool.`;
 
-/**
- * The company reference script as its own system block, so score-call can mark
- * it with cache_control. It is the largest constant chunk of every scoring
- * request (~15k tokens for the V4 script) and identical call-to-call.
- */
-export function buildScriptSystemBlock(scriptContent: string): string {
-  return `The company's reference sales script and knowledge base. When grading, treat it as the source of truth for what the rep SHOULD have said and done:
-
-<COMPANY_SCRIPT>
-${scriptContent}
-</COMPANY_SCRIPT>`;
-}
-
 export function buildUserMessage(args: {
   companyName: string;
   repName: string;
@@ -148,10 +157,15 @@ export function buildUserMessage(args: {
   scriptContent?: string | null;
   presetOverrides?: string | null;
 }) {
-  // NOTE: the company script is NOT embedded here anymore — it rides as a
-  // prompt-cached system block (see buildScriptSystemBlock) so its ~15k tokens
-  // are billed at 10% on cache hits instead of full price on every score.
-  return `Call metadata:
+  const scriptBlock = args.scriptContent
+    ? `<COMPANY_SCRIPT>
+${args.scriptContent}
+</COMPANY_SCRIPT>
+
+`
+    : "";
+
+  return `${scriptBlock}Call metadata:
 - Company: ${args.companyName}
 - Rep: ${args.repName}
 - Call type: ${args.callType}
@@ -163,14 +177,6 @@ ${args.presetOverrides ? `Company-specific scorecard adjustments:\n${args.preset
 """
 ${args.transcript}
 """
-
-IMPORTANT — speaker labels: the REP/SELLER labels come from automatic
-speaker diarization and are sometimes SWAPPED. Before scoring, determine
-from context which speaker actually works for ${args.companyName} (the
-one making offers, referencing the company, following the acquisition
-script) and grade THAT person as the rep, regardless of the printed
-labels. If the labels appear swapped, say so in coaching_notes_manager
-and grade the true rep's performance.
 
 Score this call against the Road to a Deal framework. Use direct
 quotes from the transcript. Be specific. Coach like a real manager.`;
