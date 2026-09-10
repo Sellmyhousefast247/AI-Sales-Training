@@ -70,7 +70,19 @@ export async function runScoringForCall(
   }
 
   await admin.from("calls").update({ scoring_status: "scoring" }).eq("id", callId);
-  await admin.from("scorecards").update({ is_current: false }).eq("call_id", callId).eq("is_current", true);
+  // NOTE: the previous scorecard (if any) stays is_current until the NEW one is
+  // safely inserted — a failed re-score must never leave the call score-less.
+  const markFailed = async () => {
+    const { data: still } = await admin
+      .from("scorecards")
+      .select("id")
+      .eq("call_id", callId)
+      .eq("is_current", true)
+      .limit(1)
+      .maybeSingle();
+    // A failed re-score of an already-scored call keeps its old score.
+    await admin.from("calls").update({ scoring_status: still ? "scored" : "failed" }).eq("id", callId);
+  };
 
   const { data: settings } = await admin
     .from("company_settings")
@@ -84,7 +96,8 @@ export async function runScoringForCall(
     .from("scorecards")
     .select("final_score, average_score, created_at")
     .eq("rep_id", call.rep_id)
-    .eq("is_current", true);
+    .eq("is_current", true)
+    .neq("call_id", callId); // exclude this call's own prior score
 
   const tierBefore = computeRepTier({
     scores: (priorScores ?? []).map((s: any) => ({
@@ -108,7 +121,7 @@ export async function runScoringForCall(
       scriptContent: settings?.script_content ?? null,
     });
   } catch (err: any) {
-    await admin.from("calls").update({ scoring_status: "failed" }).eq("id", callId);
+    await markFailed();
     return { ok: false, code: "scoring_failed", message: err?.message ?? "Scoring failed" };
   }
 
@@ -164,9 +177,17 @@ export async function runScoringForCall(
     .single();
 
   if (scErr) {
-    await admin.from("calls").update({ scoring_status: "failed" }).eq("id", callId);
+    await markFailed();
     return { ok: false, code: "internal", message: scErr.message };
   }
+
+  // New scorecard is in — only now retire the previous one(s).
+  await admin
+    .from("scorecards")
+    .update({ is_current: false })
+    .eq("call_id", callId)
+    .eq("is_current", true)
+    .neq("id", sc.id);
 
   await admin.from("step_scores").insert(
     ROAD_TO_DEAL_STEPS.map((k) => ({
