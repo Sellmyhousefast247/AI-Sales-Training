@@ -1,4 +1,4 @@
-import { ROAD_TO_DEAL_STEPS, STEP_LABELS, STEP_NUMBER, type RoadStep } from "@/lib/types";
+import { ROAD_TO_DEAL_STEPS, STEP_LABELS, STEP_NUMBER, isLegacyStep, isRoadStep, stepNumber, type RoadStep } from "@/lib/types";
 
 /**
  * Road to a Deal step status, mentor-review style:
@@ -43,11 +43,27 @@ export function stepTitle(step: RoadStep, status: StepStatus): string {
   return `${label} — ${word}`;
 }
 
-/** Build a step→score map from a step_scores relation array. */
+/**
+ * Build a step→score map from a step_scores relation array.
+ * Legacy (pre-10/21/26) step keys are mapped by ORDINAL onto the current
+ * 10 slots so old calls still render a 10-chip row; use `hasLegacySteps`
+ * to flag them.
+ */
 export function stepMap(rows: Array<{ step: string; score: number }> | null | undefined) {
   const m: Partial<Record<RoadStep, number>> = {};
-  for (const r of rows ?? []) m[r.step as RoadStep] = Number(r.score);
+  for (const r of rows ?? []) {
+    if (isRoadStep(r.step)) m[r.step] = Number(r.score);
+    else if (isLegacyStep(r.step)) {
+      const n = stepNumber(r.step);
+      if (n) m[ROAD_TO_DEAL_STEPS[n - 1]] = Number(r.score);
+    }
+  }
   return m;
+}
+
+/** True when a scorecard was graded on the legacy (v1) rubric. */
+export function hasLegacySteps(rows: Array<{ step: string }> | null | undefined) {
+  return (rows ?? []).some((r) => isLegacyStep(r.step));
 }
 
 /**

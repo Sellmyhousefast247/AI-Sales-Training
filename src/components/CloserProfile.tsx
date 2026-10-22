@@ -12,44 +12,44 @@ const AXIS_TEXT = "#93A3C6";   // ink-500
 
 /** Short display name per step (radar labels + bars). */
 export const SHORT_LABEL: Record<RoadStep, string> = {
-  rapport: "Rapport",
-  motivation: "Motivation",
-  asking_price: "Asking Price",
-  trial_close_1: "Trial Close 1",
-  first_hold: "First Hold",
-  anchor: "Anchor",
-  negotiation: "Negotiation",
-  trial_close_2: "Trial Close 2",
-  second_hold: "Second Hold",
-  approval_close: "Approval Close",
+  intro: "Introduction",
+  reveal: "Reveal",
+  obstacles: "Obstacles & Time",
+  future_pace: "Future Pace",
+  assessment: "Assessment",
+  positioning: "Positioning",
+  hold_process: "Hold & Process",
+  offer: "Offer",
+  close_negotiation: "Close & Negotiate",
+  contract_wrapup: "Contract & Wrap",
 };
 
 /** One-line coaching pointer per step, used in Focus Areas. */
 const COACHING_TIP: Record<RoadStep, string> = {
-  rapport: "Slow the opener down — confirm their name, ask permission, and mirror their energy before any price talk.",
-  motivation: "Run the full WHY discovery: situation, condition, timeline, and the emotional impact behind the move.",
-  asking_price: "Deliver the education pitch before asking — 'here's how companies like ours work' — then get their number.",
-  trial_close_1: "Ask the conditional-commitment question and wait for a clean YES before moving forward. A maybe is a no.",
-  first_hold: "Set up the hold on purpose: recap what you heard, tell them why you're stepping away, and give a time.",
-  anchor: "Anchor below your target with a reason attached, and let silence do the work after the number.",
-  negotiation: "Trade, don't chase — every concession should come with a condition, and re-use their motivation to justify moves.",
-  trial_close_2: "Re-close after the number moves: 'if we land at X, is this done today?' before touching the paperwork.",
-  second_hold: "Use the second hold to build authority — bring the 'approval' back with energy and a deadline.",
-  approval_close: "Assume the close: walk the agreement line by line and lock next steps with both decision-makers present.",
+  intro: "Set the frame early: 'this first call is pretty basic', 'speed is important, right?', 'are you in a position to move forward?' — then the notepad info and the JC file number.",
+  reveal: "Don't accept the first answer — ask 'what made you ready now?', then keep probing (goal 7+ questions) until the seller feels the pain. This should be the longest part of the call.",
+  obstacles: "Nail the timeline ('ideally, when would you like to…'), what they've tried, what stopped them, and 'why not just list it with a realtor?'",
+  future_pace: "Get them talking about life after the sale: 'no longer dealing with X, finally Y — how different is that? What are you looking forward to most? How's that going to feel?'",
+  assessment: "Run the full walkthrough — outside first (neighborhood, roof, HVAC, structure), then inside (updates, flooring, plumbing, electric) — and finish with the $50k Home Depot question.",
+  positioning: "Before price: deadline, decision-makers, the NEEDS number, mortgage balance, the 40-50% investor conditioning, then 'would you have any concerns at that point?' — and stay on it until there are none.",
+  hold_process: "Set the hold up as approval-or-denial, come back with the underwriting questions, walk the whole process, and ask 'any questions or concerns about the process?' before the second hold.",
+  offer: "Present it as a qualification — CONGRATS or 'came in around where I thought' — tie the net to their dream outcome, give ONE specific odd number, and if it's low ask what they were hoping to hear.",
+  close_negotiation: "Never negotiate live — find the gap, bring it to the team, move in small steps. Pivot to the Equity Protection Program when stuck, then isolate: 'if you had that amount in your pocket… any other reason you wouldn't move forward?'",
+  contract_wrapup: "Send the contract on the call and stay on until it's signed — name/price/address check, initials, pages 2-3 — then wrap strong: access schedule, TC + Curtis handoff, 210 number, 'Have a blessed day!'",
 };
 
 /** Encouragement line per step, used in Strengths. */
 const STRENGTH_LINE: Record<RoadStep, string> = {
-  rapport: "Sellers open up fast — keep leading with that connection.",
-  motivation: "Digging into the seller's WHY is carrying these calls.",
-  asking_price: "Getting to a number early gives every call a spine.",
-  trial_close_1: "Locking early commitment is setting up the close.",
-  first_hold: "The hold is landing with purpose — keep that structure.",
-  anchor: "Confident anchoring is winning the price conversation.",
-  negotiation: "Trading well under pressure — that's closer instinct.",
-  trial_close_2: "Re-closing after the number moves is sealing deals.",
-  second_hold: "The authority play is working — keep the energy up.",
-  approval_close: "Strong finishes. The paperwork walk-through closes.",
+  intro: "Strong openers — sellers know who you are and what's coming.",
+  reveal: "Digging into the seller's WHY is carrying these calls.",
+  obstacles: "Clear timelines and obstacles are setting up every close.",
+  future_pace: "Painting life after the sale is pulling sellers forward.",
+  assessment: "Thorough walkthroughs — sellers feel you're the real deal.",
+  positioning: "Pre-handling concerns before price is paying off.",
+  hold_process: "The hold and process walk-through are landing with authority.",
+  offer: "Confident offer presentation — the number lands as a qualification.",
+  close_negotiation: "Steady under pressure — that's closer instinct.",
+  contract_wrapup: "Strong finishes. Contracts get signed and sellers stay confident.",
 };
 
 export type StepAvg = { step: RoadStep; avg: number; n: number };

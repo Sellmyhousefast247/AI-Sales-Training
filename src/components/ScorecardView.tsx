@@ -1,8 +1,11 @@
 import {
   ROAD_TO_DEAL_STEPS,
   STEP_LABELS,
-  STEP_NUMBER,
   STEP_SCORE_LABEL,
+  LEGACY_STEPS,
+  isLegacyStep,
+  stepLabel,
+  stepNumber,
   type RoadStep,
   type StepScore,
   type CriticalBreakpoint,
@@ -48,7 +51,11 @@ const STEP_PILL: Record<StepScore, string> = {
 };
 
 export function ScorecardView(p: ScorecardViewProps) {
-  const stepMap = new Map(p.steps.map((s) => [s.step, s]));
+  const stepMap = new Map(p.steps.map((s) => [s.step as string, s]));
+  // Scorecards graded before the 10/21/26 script carry the legacy step keys;
+  // render those under their original labels instead of the current rubric.
+  const legacy = p.steps.some((s) => isLegacyStep(s.step as string));
+  const stepKeys: readonly string[] = legacy ? LEGACY_STEPS : ROAD_TO_DEAL_STEPS;
 
   return (
     <div className="space-y-6">
@@ -82,16 +89,19 @@ export function ScorecardView(p: ScorecardViewProps) {
       </div>
 
       <section className="rounded-lg border border-ink-200 bg-white p-5">
-        <div className="mb-3 text-sm font-semibold">Road to a Deal — step breakdown</div>
+        <div className="mb-3 text-sm font-semibold">
+          Road to a Deal — step breakdown
+          {legacy && <span className="ml-2 rounded bg-ink-100 px-1.5 py-0.5 text-[10px] font-normal uppercase tracking-wide text-ink-500">scored on v1 script</span>}
+        </div>
         <ul className="space-y-2 text-sm">
-          {ROAD_TO_DEAL_STEPS.map((k) => {
+          {stepKeys.map((k) => {
             const s = stepMap.get(k);
             const score = (s?.score ?? 0) as StepScore;
             return (
               <li key={k} className="flex items-start justify-between gap-3">
                 <div className="flex-1">
                   <div className="font-medium">
-                    {STEP_NUMBER[k]}. {STEP_LABELS[k]}
+                    {stepNumber(k)}. {stepLabel(k)}
                   </div>
                   {s?.justification ? (
                     <div className="text-xs text-ink-500">{s.justification}</div>
@@ -118,7 +128,7 @@ export function ScorecardView(p: ScorecardViewProps) {
         <section className="rounded-lg border-2 border-rose-300 bg-rose-50 p-5">
           <div className="text-xs uppercase tracking-wide text-rose-700">Critical breakpoint</div>
           <div className="mt-1 text-sm font-semibold">
-            Step {STEP_NUMBER[p.criticalBreakpoint.step_failed]} — {STEP_LABELS[p.criticalBreakpoint.step_failed]}
+            Step {stepNumber(p.criticalBreakpoint.step_failed)} — {stepLabel(p.criticalBreakpoint.step_failed)}
           </div>
           <Quote text={p.criticalBreakpoint.quote} />
           <Block label="Why it caused loss" body={p.criticalBreakpoint.why_it_caused_loss} />
@@ -141,7 +151,7 @@ export function ScorecardView(p: ScorecardViewProps) {
               <div key={i} className="border-l-2 border-ink-200 pl-4">
                 {item.step ? (
                   <div className="mb-1 text-xs font-medium uppercase tracking-wide text-ink-500">
-                    Step {STEP_NUMBER[item.step]} — {STEP_LABELS[item.step]}
+                    Step {stepNumber(item.step)} — {stepLabel(item.step)}
                   </div>
                 ) : null}
                 <div className="text-xs font-medium uppercase tracking-wide text-ink-500">REP SAID</div>
