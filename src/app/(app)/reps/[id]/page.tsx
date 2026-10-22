@@ -5,7 +5,7 @@ import { getCurrentProfile } from "@/lib/queries";
 import { TierBadge } from "@/components/TierBadge";
 import { ScoreTrendChart } from "@/components/ScoreTrendChart";
 import { formatDateTime, formatScore } from "@/lib/utils";
-import { ROAD_TO_DEAL_STEPS, STEP_LABELS, STEP_NUMBER, type RoadStep, type Tier } from "@/lib/types";
+import { ROAD_TO_DEAL_STEPS, STEP_LABELS, STEP_NUMBER, isRoadStep, type RoadStep, type Tier } from "@/lib/types";
 import { StepCell, StepLegend, stepMap, stepStatus } from "@/components/StepChips";
 import { CloserProfile } from "@/components/CloserProfile";
 
@@ -54,6 +54,7 @@ export default async function RepProfilePage({ params }: { params: Promise<{ id:
   const stepAgg = new Map<RoadStep, { sum: number; n: number }>();
   for (const r of stepRows ?? []) {
     const k = (r as any).step as RoadStep;
+    if (!isRoadStep(k)) continue; // legacy (v1-script) scores don't feed the new-rubric profile
     const cur = stepAgg.get(k) ?? { sum: 0, n: 0 };
     cur.sum += Number((r as any).score);
     cur.n += 1;
