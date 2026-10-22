@@ -189,7 +189,7 @@ export async function runScoringForCall(
     .eq("is_current", true)
     .neq("id", sc.id);
 
-  await admin.from("step_scores").insert(
+  const { error: stepErr } = await admin.from("step_scores").insert(
     ROAD_TO_DEAL_STEPS.map((k) => ({
       scorecard_id: sc.id,
       company_id: call.company_id,
@@ -199,6 +199,22 @@ export async function runScoringForCall(
       supporting_quote: out.step_scores[k].supporting_quote ?? null,
     }))
   );
+  if (stepErr) {
+    // Most likely the step-key CHECK constraint hasn't been migrated yet for a
+    // new rubric. Don't leave a scorecard without its steps: roll it back and
+    // let the retry pass pick the call up again once the DB is ready.
+    await admin.from("scorecards").delete().eq("id", sc.id);
+    const { data: prev } = await admin
+      .from("scorecards")
+      .select("id")
+      .eq("call_id", callId)
+      .order("created_at", { ascending: false })
+      .limit(1)
+      .maybeSingle();
+    if (prev) await admin.from("scorecards").update({ is_current: true }).eq("id", prev.id);
+    await markFailed();
+    return { ok: false, code: "internal", message: `step_scores insert failed: ${stepErr.message}` };
+  }
 
   await admin.from("coaching_notes").insert({
     company_id: call.company_id,
