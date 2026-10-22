@@ -17,7 +17,7 @@ const validBase = {
   final_score: 10,
   critical_breakpoint: {
     quote: "x",
-    step_failed: "rapport" as RoadStep,
+    step_failed: "intro" as RoadStep,
     why_it_caused_loss: "y",
     what_should_have_happened: "z",
   },
@@ -51,7 +51,7 @@ describe("scorecardOutputSchema", () => {
       ...validBase,
       step_scores: {
         ...validBase.step_scores,
-        rapport: { score: 7, justification: "x", supporting_quote: "" },
+        intro: { score: 7, justification: "x", supporting_quote: "" },
       },
     };
     expect(() => scorecardOutputSchema.parse(mid)).not.toThrow();
@@ -62,7 +62,7 @@ describe("scorecardOutputSchema", () => {
       ...validBase,
       step_scores: {
         ...validBase.step_scores,
-        rapport: { score: 11, justification: "x", supporting_quote: "" },
+        intro: { score: 11, justification: "x", supporting_quote: "" },
       },
     };
     expect(() => scorecardOutputSchema.parse(bad)).toThrow();
@@ -86,8 +86,8 @@ describe("scorecardOutputSchema", () => {
       ...validBase,
       step_scores: {
         ...fullStepScores(0),
-        rapport: { score: 10 as const, justification: "x", supporting_quote: "" },
-        motivation: { score: 5 as const, justification: "y", supporting_quote: "" },
+        intro: { score: 10 as const, justification: "x", supporting_quote: "" },
+        reveal: { score: 5 as const, justification: "y", supporting_quote: "" },
       },
       total_score: 15,
       final_score: 1.5,
