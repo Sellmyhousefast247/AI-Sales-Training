@@ -50,7 +50,7 @@ export function ScriptEditor({
           className="rounded-md border border-ink-300 bg-ink-100 px-3 py-1.5 text-xs font-medium text-ink-800 hover:bg-ink-200"
           title="Replace the editor contents with the bundled 2026 Closer Manual script"
         >
-          Load latest manual (8/14/26)
+          Load latest script (10/21/26)
         </button>
       </div>
 
