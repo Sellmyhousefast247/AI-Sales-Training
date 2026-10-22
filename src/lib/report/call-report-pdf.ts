@@ -1,5 +1,5 @@
 import { PDFDocument, StandardFonts, rgb, type PDFFont, type PDFPage } from "pdf-lib";
-import { ROAD_TO_DEAL_STEPS, STEP_LABELS, type RoadStep } from "@/lib/types";
+import { ROAD_TO_DEAL_STEPS, LEGACY_STEPS, isLegacyStep, stepLabel, type RoadStep } from "@/lib/types";
 
 /**
  * Branded, printable call-review PDF the manager can hand to the rep.
@@ -165,14 +165,16 @@ export async function buildCallReportPdf(d: CallReportData): Promise<Uint8Array>
   if (statLine) draw(statLine, { color: MUTE, size: 9 });
 
   // ---- Road to a Deal -------------------------------------------------------
-  sectionTitle("Road to a Deal");
-  const byStep = new Map(d.steps.map((s) => [s.step, s]));
-  ROAD_TO_DEAL_STEPS.forEach((key, i) => {
+  const legacy = d.steps.some((s) => isLegacyStep(String(s.step)));
+  sectionTitle(legacy ? "Road to a Deal (scored on v1 script)" : "Road to a Deal");
+  const byStep = new Map(d.steps.map((s) => [String(s.step), s]));
+  const keys: readonly string[] = legacy ? LEGACY_STEPS : ROAD_TO_DEAL_STEPS;
+  keys.forEach((key, i) => {
     const s = byStep.get(key);
     const score = s?.score ?? 0;
     const tag = score >= 8 ? "HIT" : score >= 3 ? "WEAK" : "MISS";
     ensure(30);
-    const head = `${i + 1}. ${STEP_LABELS[key]}`;
+    const head = `${i + 1}. ${stepLabel(key)}`;
     page.drawText(clean(head), { x: M, y: y - 10, size: 10, font: bold, color: NAVY });
     const right = `${score}/10  ${tag}`;
     page.drawText(right, { x: PAGE_W - M - bold.widthOfTextAtSize(right, 10), y: y - 10, size: 10, font: bold, color: scoreColor(score) });
@@ -186,7 +188,7 @@ export async function buildCallReportPdf(d: CallReportData): Promise<Uint8Array>
   if (d.criticalBreakpoint) {
     sectionTitle("Critical Breakpoint");
     const cb = d.criticalBreakpoint;
-    const failLabel = STEP_LABELS[cb.step_failed as RoadStep] ?? cb.step_failed;
+    const failLabel = stepLabel(String(cb.step_failed));
     draw(`Step failed: ${failLabel}`, { font: bold, size: 9.5, color: RED });
     if (cb.quote) draw(`"${cb.quote}"`, { font: italic, size: 9, color: MUTE });
     draw(`Why it hurt the deal: ${cb.why_it_caused_loss}`, { size: 9.5 });
