@@ -31,7 +31,7 @@ export default function LandingPage() {
 
       <section className="mx-auto max-w-5xl px-8 pb-24">
         <div className="grid gap-6 md:grid-cols-3">
-          <Feature title="10-category scoring" body="Opening, rapport, discovery, questioning, control, objections, value, offer, close, conversion likelihood." />
+          <Feature title="10-step scoring" body="Introduction, reveal, obstacles, future pace, assessment, positioning, hold &amp; process, offer, close, contract." />
           <Feature title="Tier system" body="5-tier ladder driven by rolling averages. Promote the right reps, retrain the rest." />
           <Feature title="Coaching that acts" body="Per-call rewrite of what the rep should have said. Weekly drills. Manager digest." />
         </div>
