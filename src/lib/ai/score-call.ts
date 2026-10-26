@@ -187,8 +187,23 @@ export async function scoreCall(input: ScoreCallInput): Promise<ScoreCallResult>
     { temperature: 0, nudge: true },
     { temperature: 0.6, nudge: true },
   ];
+  // Time budget: the Vercel function (and the cron piggyback) is capped at
+  // 300s. A long transcript (40+ min) can take 2-4 min per pass, so a second
+  // pass after a slow failed first pass would blow the cap and strand the call
+  // at "scoring" with nothing recorded. If the first pass used most of the
+  // budget, fail fast instead — the retry job picks the call up again in a
+  // fresh invocation (with a different sampling seed), which is strictly
+  // better than a silent timeout.
+  const started = Date.now();
+  const PASS_BUDGET_MS = Number(process.env.SCORING_SECOND_PASS_CUTOFF_MS ?? 130_000);
   let lastErr: unknown;
-  for (const pass of passes) {
+  for (const [i, pass] of passes.entries()) {
+    if (i > 0 && Date.now() - started > PASS_BUDGET_MS) {
+      throw new Error(
+        `scoring pass ${i} skipped — ${Math.round((Date.now() - started) / 1000)}s already used; ` +
+          `will retry in a fresh run (${String((lastErr as any)?.message ?? lastErr).slice(0, 160)})`
+      );
+    }
     try {
       return await attempt(pass.temperature, pass.nudge);
     } catch (err) {
